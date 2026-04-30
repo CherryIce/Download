@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import CommonCrypto
 
 /// M3U8下载处理器
 class M3U8DownloadHandler: DownloadHandlerProtocol {
@@ -84,6 +85,7 @@ class M3U8DownloadTask: DownloadTask {
 
     let state = CurrentValueSubject<DownloadState, Never>(.pending)
     let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
+    private(set) var completedURL: URL?
 
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
@@ -155,7 +157,8 @@ class M3U8DownloadTask: DownloadTask {
                 // 清理临时文件
                 try? storageManager.deleteFile(at: tempDir)
 
-                state.send(.completed(outputURL))
+                self.completedURL = outputURL
+                state.send(.completed)
 
             } catch is CancellationError {
                 state.send(.cancelled)
@@ -231,7 +234,7 @@ class M3U8DownloadTask: DownloadTask {
         let outputHandle = try FileHandle(forWritingTo: outputURL)
 
         defer {
-            try? outputHandle.close()
+            outputHandle.closeFile()
         }
 
         // 按顺序读取并合并所有TS片段
@@ -240,7 +243,7 @@ class M3U8DownloadTask: DownloadTask {
 
             if FileManager.default.fileExists(atPath: segmentURL.path) {
                 let data = try Data(contentsOf: segmentURL)
-                try outputHandle.write(contentsOf: data)
+                outputHandle.write(data)
             }
         }
 
@@ -249,8 +252,6 @@ class M3U8DownloadTask: DownloadTask {
 }
 
 // MARK: - AES Decryptor
-
-import CommonCrypto
 
 class AESDecryptor {
     private let key: Data
@@ -262,10 +263,11 @@ class AESDecryptor {
     }
 
     func decrypt(_ data: Data) throws -> Data {
-        var decryptedData = Data(count: data.count + kCCBlockSizeAES128)
+        let outputSize = data.count + kCCBlockSizeAES128
+        var decryptedData = Data(count: outputSize)
         var numBytesDecrypted: size_t = 0
 
-        let cryptStatus = key.withUnsafeBytes { keyBytes in
+        let cryptStatus: CCCryptorStatus = key.withUnsafeBytes { keyBytes in
             iv.withUnsafeBytes { ivBytes in
                 data.withUnsafeBytes { dataBytes in
                     decryptedData.withUnsafeMutableBytes { decryptedBytes in
@@ -279,7 +281,7 @@ class AESDecryptor {
                             dataBytes.baseAddress,
                             data.count,
                             decryptedBytes.baseAddress,
-                            decryptedData.count,
+                            outputSize,
                             &numBytesDecrypted
                         )
                     }

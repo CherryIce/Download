@@ -1,13 +1,14 @@
 import Foundation
 import Combine
 
-final class ResumableDownloadTask: DownloadTask {
+final class ResumableDownloadTask: NSObject, DownloadTask {
     let id = UUID()
     let url: String
     let fileName: String
     let configuration: DownloadConfiguration
-    let state = CurrentValueSubject<DownloadState, Never>(.waiting)
-    let progress = CurrentValueSubject<DownloadProgress, Never>(.zero)
+    let state = CurrentValueSubject<DownloadState, Never>(.pending)
+    let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
+    private(set) var completedURL: URL?
     private(set) var resumeData: Data?
 
     private var urlSessionTask: URLSessionDownloadTask?
@@ -17,6 +18,7 @@ final class ResumableDownloadTask: DownloadTask {
         self.url = url
         self.fileName = fileName
         self.configuration = configuration
+        super.init()
         self.urlSession = URLSession(
             configuration: .default,
             delegate: self,
@@ -73,6 +75,7 @@ extension ResumableDownloadTask: URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let destURL = FileStorageManager().completedDirectory().appendingPathComponent(fileName)
         try? FileManager.default.moveItem(at: location, to: destURL)
+        completedURL = destURL
         state.send(.completed)
     }
 }

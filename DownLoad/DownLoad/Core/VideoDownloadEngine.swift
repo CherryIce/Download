@@ -9,9 +9,9 @@ import Foundation
 import Combine
 
 /// 视频下载引擎
-public class VideoDownloadEngine {
+class VideoDownloadEngine {
 
-    public static let shared = VideoDownloadEngine()
+    static let shared = VideoDownloadEngine()
 
     private let queueManager: DownloadQueueManager
     private let storageManager: FileStorageManager
@@ -44,7 +44,7 @@ public class VideoDownloadEngine {
     }
 
     /// 创建下载任务
-    public func createDownloadTask(
+    func createDownloadTask(
         url: String,
         fileName: String? = nil,
         configuration: DownloadConfiguration = .default
@@ -72,19 +72,19 @@ public class VideoDownloadEngine {
     }
 
     /// 开始下载
-    public func startDownload(task: any DownloadTask) async throws {
+    func startDownload(task: any DownloadTask) async throws {
         Logger.info("Starting download: \(task.id)")
         try await task.resume()
     }
 
     /// 暂停下载
-    public func pauseDownload(task: any DownloadTask) async {
+    func pauseDownload(task: any DownloadTask) async {
         Logger.info("Pausing download: \(task.id)")
         await task.pause()
     }
 
     /// 取消下载
-    public func cancelDownload(task: any DownloadTask) async {
+    func cancelDownload(task: any DownloadTask) async {
         Logger.info("Cancelling download: \(task.id)")
         await task.cancel()
         await queueManager.removeTask(task.id)

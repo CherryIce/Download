@@ -2,14 +2,14 @@ import UIKit
 import Combine
 
 /// 可复用的下载管理视图
-public class DownloadManagerView: UIView, UITableViewDataSource, UITableViewDelegate {
+class DownloadManagerView: UIView, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView()
     private var tasks: [any DownloadTask] = []
     private var cancellables = Set<AnyCancellable>()
 
-    public var engine = VideoDownloadEngine.shared
+    var engine = VideoDownloadEngine.shared
 
-    public override init(frame: CGRect) {
+    override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
         subscribeToTasks()
@@ -45,19 +45,19 @@ public class DownloadManagerView: UIView, UITableViewDataSource, UITableViewDele
         //     .store(in: &cancellables)
     }
 
-    public func reload(tasks: [any DownloadTask]) {
+    func reload(tasks: [any DownloadTask]) {
         self.tasks = tasks
         tableView.reloadData()
     }
 
     // UITableViewDataSource
-    public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return tasks.count
     }
-    public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
         let task = tasks[indexPath.row]
-        cell.textLabel?.text = "\(task.fileName) - \(task.state.value)"
+        cell.textLabel?.text = "\(task.fileName) - \(task.state.value.rawValue)"
         return cell
     }
 }

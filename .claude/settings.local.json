@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -destination 'platform=iOS Simulator,name=iPhone 16' build)",
+      "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -destination 'platform=iOS Simulator,name=iPhone 16' clean build)"
+    ]
+  }
+}

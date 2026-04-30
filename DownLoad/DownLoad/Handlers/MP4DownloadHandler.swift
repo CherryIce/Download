@@ -57,6 +57,7 @@ class MP4DownloadTask: DownloadTask {
 
     let state = CurrentValueSubject<DownloadState, Never>(.pending)
     let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
+    private(set) var completedURL: URL?
 
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
@@ -118,7 +119,8 @@ class MP4DownloadTask: DownloadTask {
                 // 清理临时目录
                 try? storageManager.deleteFile(at: tempDirectory)
 
-                state.send(.completed(destinationURL))
+                self.completedURL = destinationURL
+                state.send(.completed)
 
             } catch is CancellationError {
                 state.send(.cancelled)

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UserNotifications
 
 /// 下载通知名称
 struct DownloadNotification {
@@ -163,5 +164,3 @@ class DownloadNotifier {
         }
     }
 }
-
-import UserNotifications

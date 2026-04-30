@@ -95,38 +95,40 @@ actor NetworkClient {
         to destinationURL: URL,
         progress: @escaping (Int64, Int64) -> Void
     ) async throws -> URL {
-        let (asyncBytes, response) = try await session.bytes(from: url)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.invalidResponse
-        }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw NetworkError.httpError(statusCode: httpResponse.statusCode)
-        }
-
-        let totalBytes = response.expectedContentLength
-        var downloadedBytes: Int64 = 0
-
-        FileManager.default.createFile(atPath: destinationURL.path, contents: nil, attributes: nil)
-        let fileHandle = try FileHandle(forWritingTo: destinationURL)
-
-        defer {
-            try? fileHandle.close()
-        }
-
-        for try await byte in asyncBytes {
-            try fileHandle.write(contentsOf: [byte])
-            downloadedBytes += 1
-
-            if downloadedBytes % 1024 == 0 {
-                progress(downloadedBytes, totalBytes)
+        return try await withCheckedThrowingContinuation { continuation in
+            let task = session.downloadTask(with: url) { tempURL, response, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    continuation.resume(throwing: NetworkError.invalidResponse)
+                    return
+                }
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    continuation.resume(throwing: NetworkError.httpError(statusCode: httpResponse.statusCode))
+                    return
+                }
+                guard let tempURL = tempURL else {
+                    continuation.resume(throwing: NetworkError.noData)
+                    return
+                }
+                do {
+                    let dir = destinationURL.deletingLastPathComponent()
+                    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                    if FileManager.default.fileExists(atPath: destinationURL.path) {
+                        try FileManager.default.removeItem(at: destinationURL)
+                    }
+                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
+                    progress(size, size)
+                    continuation.resume(returning: destinationURL)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
+            task.resume()
         }
-
-        progress(downloadedBytes, totalBytes)
-
-        return destinationURL
     }
 
     /// 下载文件（支持断点续传）
@@ -136,47 +138,39 @@ actor NetworkClient {
         resumeData: Data? = nil,
         progress: @escaping (Int64, Int64) -> Void
     ) async throws -> (URL, Data?) {
-        var request = URLRequest(url: url)
-
-        // 如果有resumeData，这里需要从resumeData中提取已下载的字节数
-        // 简化实现：直接使用Range头
-        // 实际应该从resumeData中解析
-
-        let (asyncBytes, response) = try await session.bytes(from: url)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.invalidResponse
-        }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw NetworkError.httpError(statusCode: httpResponse.statusCode)
-        }
-
-        let totalBytes = response.expectedContentLength
-        var downloadedBytes: Int64 = 0
-
-        if !FileManager.default.fileExists(atPath: destinationURL.path) {
-            FileManager.default.createFile(atPath: destinationURL.path, contents: nil, attributes: nil)
-        }
-
-        let fileHandle = try FileHandle(forWritingTo: destinationURL)
-        try fileHandle.seekToEnd()
-
-        defer {
-            try? fileHandle.close()
-        }
-
-        for try await byte in asyncBytes {
-            try fileHandle.write(contentsOf: [byte])
-            downloadedBytes += 1
-
-            if downloadedBytes % 1024 == 0 {
-                progress(downloadedBytes, totalBytes)
+        return try await withCheckedThrowingContinuation { continuation in
+            let downloadTask = session.downloadTask(with: url) { tempURL, response, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    continuation.resume(throwing: NetworkError.invalidResponse)
+                    return
+                }
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    continuation.resume(throwing: NetworkError.httpError(statusCode: httpResponse.statusCode))
+                    return
+                }
+                guard let tempURL = tempURL else {
+                    continuation.resume(throwing: NetworkError.noData)
+                    return
+                }
+                do {
+                    let dir = destinationURL.deletingLastPathComponent()
+                    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                    if FileManager.default.fileExists(atPath: destinationURL.path) {
+                        try FileManager.default.removeItem(at: destinationURL)
+                    }
+                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
+                    progress(size, size)
+                    continuation.resume(returning: (destinationURL, nil))
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
+            downloadTask.resume()
         }
-
-        progress(downloadedBytes, totalBytes)
-
-        return (destinationURL, nil)
     }
 }

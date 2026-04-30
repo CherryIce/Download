@@ -16,6 +16,7 @@ protocol DownloadTask: AnyObject {
     var configuration: DownloadConfiguration { get }
     var state: CurrentValueSubject<DownloadState, Never> { get }
     var progress: CurrentValueSubject<DownloadProgress, Never> { get }
+    var completedURL: URL? { get }
 
     func resume() async throws
     func pause() async

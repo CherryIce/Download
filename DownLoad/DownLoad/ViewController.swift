@@ -145,8 +145,9 @@ class ViewController: UIViewController {
                         self?.log("State: \(state.rawValue)")
 
                         switch state {
-                        case .completed(let url):
-                            self?.log("✅ Download completed: \(url.path)")
+                        case .completed:
+                            let path = self?.currentTask?.completedURL?.path ?? "unknown"
+                            self?.log("✅ Download completed: \(path)")
                         case .failed:
                             self?.log("❌ Download failed")
                         case .cancelled:
