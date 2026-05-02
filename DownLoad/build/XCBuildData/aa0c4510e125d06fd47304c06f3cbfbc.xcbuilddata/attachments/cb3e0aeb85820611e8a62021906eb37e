@@ -1,0 +1,378 @@
+{
+  "" : {
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownLoad-master.dia",
+    "emit-module-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownLoad-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownLoad-master-emit-module.dia",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownLoad-master.swiftdeps"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/AppDelegate.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/AppDelegate~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Core/BatchDownloadManager.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadManager~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Core/DownloadQueueManager.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadQueueManager~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Core/DownloadTaskProtocol.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskProtocol~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Core/ResumableDownloadTask.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ResumableDownloadTask~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Core/VideoDownloadEngine.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadEngine~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Handlers/DownloadHandlerProtocol.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadHandlerProtocol~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Handlers/M3U8DownloadHandler.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8DownloadHandler~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Handlers/MP4DownloadHandler.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MP4DownloadHandler~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Handlers/ThunderDownloadHandler.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderDownloadHandler~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Models/DownloadItem.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadItem~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Models/DownloadProgress.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadProgress~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Models/DownloadState.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadState~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Models/VideoFormat.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoFormat~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Network/BackgroundDownloadSession.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BackgroundDownloadSession~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Network/NetworkClient.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkClient~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Network/NetworkError.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/NetworkError~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Parsers/M3U8Models.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Models~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Parsers/M3U8Parser.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/M3U8Parser~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Parsers/ThunderParser.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ThunderParser~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Protocols/DownloadError.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadError~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/SceneDelegate.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SceneDelegate~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Storage/DownloadTaskDatabase.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadTaskDatabase~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Storage/FileStorageManager.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/FileStorageManager~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Storage/StorageError.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/StorageError~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/UI/BatchDownloadCell.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadCell~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/UI/BatchDownloadViewController.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/BatchDownloadViewController~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/UI/Extensions/UIColor+Hex.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/UIColor+Hex~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/UI/MainTabBarController.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/MainTabBarController~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/UI/VideoDownloadManagerViewController.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/VideoDownloadManagerViewController~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Utilities/Constants.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Constants~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Utilities/DownloadConfiguration.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadConfiguration~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Utilities/DownloadNotifications.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/DownloadNotifications~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Utilities/Logger.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/Logger~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/Utilities/SpeedCalculator.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/SpeedCalculator~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/DownLoad/ViewController.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/ViewController~partial.swiftmodule"
+  },
+  "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/hubin/Desktop/MutiDownload/DownLoad/build/DownLoad.build/Debug-iphoneos/DownLoad.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

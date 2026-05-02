@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -destination 'platform=iOS Simulator,name=iPhone 16' build)",
-      "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -destination 'platform=iOS Simulator,name=iPhone 16' clean build)"
+      "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -destination 'platform=iOS Simulator,name=iPhone 16' clean build)",
+      "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -sdk iphonesimulator -configuration Debug build)",
+      "Bash(xcodebuild -project DownLoad/DownLoad.xcodeproj -scheme DownLoad -sdk iphonesimulator -configuration Debug test)",
+      "Bash(xcodebuild *)",
+      "Bash(wait)",
+      "Bash(xcrun simctl *)",
+      "Bash(log stream *)",
+      "Bash(pkill *)"
     ]
   }
 }
