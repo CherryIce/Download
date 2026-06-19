@@ -215,6 +215,16 @@ class VideoDownloadEngine {
 
             Logger.info("Found \(incompleteRecords.count) incomplete tasks to restore")
 
+            // 尝试获取仍在运行的后台下载任务（App 被系统杀死后重启场景）
+            let activeBackgroundTasks = await BackgroundDownloadSession.shared.getAllTasks()
+            var backgroundTaskURLMap: [String: Int] = [:] // URL -> taskIdentifier
+            for activeTask in activeBackgroundTasks {
+                if let originalRequest = activeTask.originalRequest,
+                   let urlString = originalRequest.url?.absoluteString {
+                    backgroundTaskURLMap[urlString] = activeTask.taskIdentifier
+                }
+            }
+
             for record in incompleteRecords {
                 // 避免重复添加
                 if await queueManager.getTask(by: record.id) != nil {
@@ -242,6 +252,48 @@ class VideoDownloadEngine {
                         mp4Task.resumeData = resumeData
                     }
                     task = mp4Task
+
+                    // 如果有对应的后台任务仍在运行，重新注册回调
+                    if let taskIdentifier = backgroundTaskURLMap[item.url] {
+                        Logger.info("Re-registering background task handler for: \(item.url), taskIdentifier: \(taskIdentifier)")
+                        BackgroundDownloadSession.shared.registerHandler(
+                            for: taskIdentifier,
+                            taskId: item.id,
+                            progress: { [weak mp4Task] downloaded, total in
+                                guard let mp4Task = mp4Task else { return }
+
+                                mp4Task.totalSize = total
+                                mp4Task.downloadedSize = downloaded
+                                mp4Task.progress.send(DownloadProgress(
+                                    taskId: mp4Task.id,
+                                    totalBytes: total,
+                                    downloadedBytes: downloaded,
+                                    progress: total > 0 ? Float(downloaded) / Float(total) : 0,
+                                    speed: 0,
+                                    remainingTime: 0
+                                ))
+                            },
+                            completion: { [weak mp4Task] result in
+                                guard let mp4Task = mp4Task else { return }
+                                switch result {
+                                case .success(let tempURL):
+                                    do {
+                                        let destinationURL = self.storageManager.completedDirectory().appendingPathComponent(mp4Task.fileName)
+                                        try self.storageManager.moveFile(from: tempURL, to: destinationURL)
+                                        mp4Task.markCompleted(url: destinationURL)
+                                    } catch {
+                                        Logger.error("Failed to move background downloaded file: \(error)")
+                                        mp4Task.state.send(.failed)
+                                    }
+                                case .failure(let error):
+                                    Logger.error("Background download failed after restore: \(error)")
+                                    mp4Task.state.send(.failed)
+                                }
+                            }
+                        )
+                        // 后台任务仍在运行，保持 downloading 状态
+                        task.state.send(.downloading)
+                    }
                 case .m3u8:
                     Logger.warning("M3U8 task restoration not fully supported yet, skipping: \(item.id)")
                     continue
@@ -254,10 +306,10 @@ class VideoDownloadEngine {
                 await queueManager.addTask(task)
                 observeTaskForDatabase(task)
 
-                // 如果之前是下载中状态，设置为暂停
-                if item.state == .downloading {
+                // 如果之前是下载中状态且没有匹配的后台任务，设置为暂停
+                if item.state == .downloading && backgroundTaskURLMap[item.url] == nil {
                     task.state.send(.paused)
-                } else {
+                } else if item.state != .downloading {
                     task.state.send(item.state)
                 }
             }

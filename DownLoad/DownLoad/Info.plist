@@ -30,6 +30,7 @@
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>
+        <string>download</string>
     </array>
 </dict>
 </plist>

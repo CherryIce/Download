@@ -54,7 +54,7 @@ class MP4DownloadHandler: DownloadHandlerProtocol {
     }
 }
 
-/// MP4下载任务（支持断点续传）
+/// MP4下载任务（支持断点续传 + 后台下载）
 class MP4DownloadTask: DownloadTask {
 
     let id: UUID
@@ -79,6 +79,21 @@ class MP4DownloadTask: DownloadTask {
     private var task: Task<Void, Error>?
     private var downloadHandle: ResumableDownloadHandle?
 
+    /// 后台下载任务引用（使用 BackgroundDownloadSession 时）
+    private var backgroundDownloadTask: URLSessionDownloadTask?
+    /// 是否使用后台下载模式
+    private var useBackgroundDownload: Bool {
+        return configuration.enableBackgroundDownload
+    }
+
+    /// 标记下载完成（供外部如恢复场景使用）
+    func markCompleted(url: URL) {
+        self.completedURL = url
+        self.completedAt = Date()
+        self.resumeData = nil
+        self.state.send(.completed)
+    }
+
     init(
         id: UUID,
         url: String,
@@ -100,6 +115,16 @@ class MP4DownloadTask: DownloadTask {
 
         state.send(.downloading)
 
+        if useBackgroundDownload {
+            try await resumeWithBackgroundDownload()
+        } else {
+            try await resumeWithForegroundDownload()
+        }
+    }
+
+    // MARK: - 前台下载（原有逻辑）
+
+    private func resumeWithForegroundDownload() async throws {
         task = Task {
             do {
                 guard let videoURL = URL(string: url) else {
@@ -165,23 +190,207 @@ class MP4DownloadTask: DownloadTask {
         try await task?.value
     }
 
+    // MARK: - 后台下载（使用 BackgroundDownloadSession）
+
+    private func resumeWithBackgroundDownload() async throws {
+        task = Task {
+            do {
+                guard let videoURL = URL(string: url) else {
+                    throw DownloadError.invalidURL(url)
+                }
+
+                // 使用 withCheckedContinuation 将回调式 API 桥接为 async/await
+                let downloadedURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+
+                    let bgSession = BackgroundDownloadSession.shared
+
+                    // 创建 URLRequest（支持自定义请求头）
+                    var request = URLRequest(url: videoURL)
+                    for (key, value) in self.configuration.customHeaders {
+                        request.setValue(value, forHTTPHeaderField: key)
+                    }
+
+                    // 创建后台下载任务
+                    let bgTask: URLSessionDownloadTask
+                    if let resumeData = self.resumeData {
+                        bgTask = bgSession.createDownloadTask(
+                            resumeData: resumeData,
+                            request: request,
+                            taskId: self.id,
+                            progress: { [weak self] downloaded, total in
+                                guard let self = self else { return }
+
+                                let now = Date().timeIntervalSince1970
+                                self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
+                                let speed = self.speedCalculator.calculateSpeed()
+                                let remaining = self.speedCalculator.calculateRemainingTime(totalBytes: total, downloadedBytes: downloaded)
+
+                                let progressInfo = DownloadProgress(
+                                    taskId: self.id,
+                                    totalBytes: total,
+                                    downloadedBytes: downloaded,
+                                    progress: total > 0 ? Float(downloaded) / Float(total) : 0,
+                                    speed: speed,
+                                    remainingTime: remaining
+                                )
+
+                                self.totalSize = total
+                                self.downloadedSize = downloaded
+                                self.progress.send(progressInfo)
+                            },
+                            completion: { result in
+                                switch result {
+                                case .success(let tempURL):
+                                    continuation.resume(returning: tempURL)
+                                case .failure(let error):
+                                    continuation.resume(throwing: error)
+                                }
+                            }
+                        ) ?? {
+                            // resumeData 无效，创建新任务
+                            let newTask = bgSession.createDownloadTask(
+                                request: request,
+                                taskId: self.id,
+                                progress: { [weak self] downloaded, total in
+                                    guard let self = self else { return }
+
+                                    let now = Date().timeIntervalSince1970
+                                    self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
+                                    let speed = self.speedCalculator.calculateSpeed()
+                                    let remaining = self.speedCalculator.calculateRemainingTime(totalBytes: total, downloadedBytes: downloaded)
+
+                                    let progressInfo = DownloadProgress(
+                                        taskId: self.id,
+                                        totalBytes: total,
+                                        downloadedBytes: downloaded,
+                                        progress: total > 0 ? Float(downloaded) / Float(total) : 0,
+                                        speed: speed,
+                                        remainingTime: remaining
+                                    )
+
+                                    self.totalSize = total
+                                    self.downloadedSize = downloaded
+                                    self.progress.send(progressInfo)
+                                },
+                                completion: { result in
+                                    switch result {
+                                    case .success(let tempURL):
+                                        continuation.resume(returning: tempURL)
+                                    case .failure(let error):
+                                        continuation.resume(throwing: error)
+                                    }
+                                }
+                            )
+                            return newTask
+                        }()
+                    } else {
+                        bgTask = bgSession.createDownloadTask(
+                            request: request,
+                            taskId: self.id,
+                            progress: { [weak self] downloaded, total in
+                                guard let self = self else { return }
+
+                                let now = Date().timeIntervalSince1970
+                                self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
+                                let speed = self.speedCalculator.calculateSpeed()
+                                let remaining = self.speedCalculator.calculateRemainingTime(totalBytes: total, downloadedBytes: downloaded)
+
+                                let progressInfo = DownloadProgress(
+                                    taskId: self.id,
+                                    totalBytes: total,
+                                    downloadedBytes: downloaded,
+                                    progress: total > 0 ? Float(downloaded) / Float(total) : 0,
+                                    speed: speed,
+                                    remainingTime: remaining
+                                )
+
+                                self.totalSize = total
+                                self.downloadedSize = downloaded
+                                self.progress.send(progressInfo)
+                            },
+                            completion: { result in
+                                switch result {
+                                case .success(let tempURL):
+                                    continuation.resume(returning: tempURL)
+                                case .failure(let error):
+                                    continuation.resume(throwing: error)
+                                }
+                            }
+                        )
+                    }
+
+                    // 保存后台任务引用
+                    self.backgroundDownloadTask = bgTask
+                    bgTask.resume()
+                }
+
+                // 移动到完成目录
+                let destinationURL = storageManager.completedDirectory().appendingPathComponent(fileName)
+                try storageManager.moveFile(from: downloadedURL, to: destinationURL)
+
+                // 清理 resumeData
+                self.resumeData = nil
+                self.backgroundDownloadTask = nil
+
+                self.completedURL = destinationURL
+                self.completedAt = Date()
+                state.send(.completed)
+
+            } catch is CancellationError {
+                // Task 被取消（来自 cancel() 调用）
+                state.send(.cancelled)
+            } catch {
+                Logger.error("MP4 background download failed: \(error)")
+                state.send(.failed)
+                throw DownloadError.taskFailed(error)
+            }
+        }
+
+        try await task?.value
+    }
+
     func pause() async {
-        // 通过句柄调用 cancel(byProducingResumeData:) 获取 resumeData
-        if let handle = downloadHandle {
-            let data = await handle.cancelWithResumeData()
-            resumeData = data
-            Logger.info("MP4 download paused, resumeData saved (\(data?.count ?? 0) bytes)")
+        if useBackgroundDownload {
+            // 后台模式：通过 BackgroundDownloadSession 取消并获取 resumeData
+            if let bgTask = backgroundDownloadTask {
+                let data = await withCheckedContinuation { (continuation: CheckedContinuation<Data?, Never>) in
+                    BackgroundDownloadSession.shared.cancelTask(bgTask) { resumeData in
+                        continuation.resume(returning: resumeData)
+                    }
+                }
+                resumeData = data
+                Logger.info("MP4 background download paused, resumeData saved (\(data?.count ?? 0) bytes)")
+            }
+            backgroundDownloadTask = nil
+        } else {
+            // 前台模式：通过句柄调用 cancel(byProducingResumeData:) 获取 resumeData
+            if let handle = downloadHandle {
+                let data = await handle.cancelWithResumeData()
+                resumeData = data
+                Logger.info("MP4 download paused, resumeData saved (\(data?.count ?? 0) bytes)")
+            }
+            downloadHandle = nil
         }
         task?.cancel()
         speedCalculator.reset()
-        downloadHandle = nil
         state.send(.paused)
     }
 
     func cancel() async {
         // 取消时清除 resumeData（不保留恢复能力）
         resumeData = nil
-        downloadHandle = nil
+
+        if useBackgroundDownload {
+            // 后台模式：取消后台任务
+            if let bgTask = backgroundDownloadTask {
+                BackgroundDownloadSession.shared.cancelTask(bgTask) { _ in }
+            }
+            backgroundDownloadTask = nil
+        } else {
+            // 前台模式
+            downloadHandle = nil
+        }
+
         task?.cancel()
         speedCalculator.reset()
 
