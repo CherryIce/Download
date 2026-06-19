@@ -76,9 +76,21 @@ class VideoDownloadEngine {
     }
 
     /// 开始下载
+    /// 任务已经由 queueManager 在 addTask 时自动调度，此方法仅用于外部显式触发（如暂停后恢复）
     func startDownload(task: any DownloadTask) async throws {
-        Logger.info("Starting download: \(task.id)")
-        try await task.resume()
+        Logger.info("Requesting start for download: \(task.id)")
+
+        // 检查任务是否已在队列中
+        if await queueManager.getTask(by: task.id) == nil {
+            // 任务不在队列中，先添加（会自动调度）
+            await queueManager.addTask(task)
+        } else {
+            // 任务已在队列中，如果处于暂停状态，重新调度
+            if task.state.value == .paused {
+                // 任务会从暂停状态恢复，状态变化会触发重新调度
+                try await task.resume()
+            }
+        }
     }
 
     /// 暂停下载

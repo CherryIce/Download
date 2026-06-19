@@ -20,7 +20,7 @@ class MainTabBarController: UITabBarController {
         )
 
         // 创建视频下载管理视图控制器
-        let videoDownloadManagerVC = VideoDownloadManagerViewController()
+        let videoDownloadManagerVC = BatchDownloadViewController()
         videoDownloadManagerVC.title = "下载管理"
         let videoDownloadManagerNav = UINavigationController(rootViewController: videoDownloadManagerVC)
         videoDownloadManagerNav.tabBarItem = UITabBarItem(

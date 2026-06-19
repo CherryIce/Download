@@ -120,14 +120,10 @@ actor BatchDownloadManager {
         Logger.info("Starting batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .downloading
 
-        // 开始所有任务
+        // 将所有任务添加到队列，由 queueManager 自动调度并发执行
+        // 避免循环调用 startDownload 导致所有任务同时启动
         for item in batchTask.taskItems {
-            do {
-                try await VideoDownloadEngine.shared.startDownload(task: item.task)
-            } catch {
-                Logger.error("Failed to start task \(item.fileName): \(error)")
-                // 标记任务失败但不停止整个批次
-            }
+            await queueManager.addTask(item.task)
         }
     }
 
