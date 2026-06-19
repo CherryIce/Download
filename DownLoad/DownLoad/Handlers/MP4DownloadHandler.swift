@@ -28,8 +28,15 @@ class MP4DownloadHandler: DownloadHandlerProtocol {
             throw DownloadError.invalidURL(url)
         }
 
-        // 检查存储空间
-        try storageManager.checkAvailableSpace(requiredBytes: 100 * 1024 * 1024) // 假设至少需要100MB
+        // 检查存储空间：先尝试获取远程文件大小，若获取失败则使用配置中的默认值
+        let requiredBytes: Int64
+        do {
+            let remoteSize = try await networkClient.fetchRemoteFileSize(from: videoURL)
+            requiredBytes = remoteSize > 0 ? remoteSize : Constants.Storage.defaultMP4SpaceRequirement
+        } catch {
+            requiredBytes = Constants.Storage.defaultMP4SpaceRequirement
+        }
+        try storageManager.checkAvailableSpace(requiredBytes: requiredBytes)
 
         let taskId = UUID()
         let finalFileName = fileName ?? "video_\(taskId.uuidString).mp4"

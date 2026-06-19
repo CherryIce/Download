@@ -22,6 +22,7 @@ struct Constants {
         static let cacheDirectoryName = "Cache"
         static let maxCacheSize: Int64 = 1024 * 1024 * 1024 // 1GB
         static let cacheExpirationDays = 30
+        static let defaultMP4SpaceRequirement: Int64 = 100 * 1024 * 1024 // 默认MP4空间要求：100MB
     }
 
     struct Download {

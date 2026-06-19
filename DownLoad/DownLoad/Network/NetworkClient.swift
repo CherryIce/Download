@@ -247,6 +247,21 @@ actor NetworkClient {
         }
     }
 
+    /// 获取远程文件大小（通过 HEAD 请求读取 Content-Length）
+    func fetchRemoteFileSize(from url: URL) async throws -> Int64 {
+        var request = makeRequest(for: url)
+        request.httpMethod = "HEAD"
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NetworkError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw NetworkError.httpError(statusCode: httpResponse.statusCode)
+        }
+        let contentLength = httpResponse.value(forHTTPHeaderField: "Content-Length")
+        return Int64(contentLength ?? "") ?? 0
+    }
+
     /// 下载文件（支持断点续传 + 可取消句柄，用于 MP4DownloadTask 暂停/恢复场景）
     func downloadFileWithResumeCancellable(
         from url: URL,

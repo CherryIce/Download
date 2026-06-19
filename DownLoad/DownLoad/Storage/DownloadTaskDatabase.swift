@@ -140,7 +140,8 @@ public class DownloadTaskDatabase {
             do {
                 try exec(sql)
             } catch {
-                Logger.info("Migration step skipped (may already exist): \(sql)")
+                // 迁移步骤失败时抛出明确的 StorageError，而非仅打印日志
+                throw StorageError.databaseMigrationFailed("Migration failed for SQL: \(sql), error: \(error)")
             }
         }
     }
