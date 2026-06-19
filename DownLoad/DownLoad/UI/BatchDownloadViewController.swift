@@ -241,30 +241,31 @@ class BatchDownloadViewController: UIViewController {
     private func createBatchDownload(urls: [String]) async {
         print("🔥 开始创建批量下载任务，URLs: \(urls)")
 
-        do {
-            let now = Date()
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm"
-            let name = "下载任务 \(formatter.string(from: now))"
-            print("🔥 批量任务名称: \(name)")
+        let now = Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        let name = "下载任务 \(formatter.string(from: now))"
+        print("🔥 批量任务名称: \(name)")
 
-            let batchTask = try await batchManager.createBatchDownload(
-                name: name,
-                urls: urls
-            )
+        let result = await batchManager.createBatchDownload(
+            name: name,
+            urls: urls
+        )
 
-            print("✅ 批量任务创建成功: \(batchTask.id)")
+        print("✅ 批量任务创建完成: \(result.batchTask.id)")
+        print("📊 \(result.summary)")
 
-            await startBatchDownload(batchId: batchTask.id)
-            print("✅ 批量任务已开始下载")
-
-            await loadBatchTasks()
-            print("✅ 任务列表已刷新")
-
-        } catch {
-            print("❌ 创建失败: \(error)")
-            showAlert(title: "创建失败", message: error.localizedDescription)
+        // 如果有失败项，显示提示
+        if result.hasFailures {
+            let message = result.summary + "\n失败项可在任务详情中查看并重试"
+            showAlert(title: "批量任务创建完成（部分失败）", message: message)
         }
+
+        await startBatchDownload(batchId: result.batchTask.id)
+        print("✅ 批量任务已开始下载")
+
+        await loadBatchTasks()
+        print("✅ 任务列表已刷新")
     }
 
     private func startBatchDownload(batchId: UUID) async {
@@ -273,6 +274,63 @@ class BatchDownloadViewController: UIViewController {
         } catch {
             showAlert(title: "开始失败", message: error.localizedDescription)
         }
+    }
+
+    /// 重试批量任务的失败项
+    private func retryFailedItems(batchId: UUID) {
+        Task {
+            guard let result = await batchManager.retryFailedItems(batchId: batchId) else {
+                showAlert(title: "重试失败", message: "无法找到批量任务或没有失败项")
+                return
+            }
+
+            if result.hasFailures {
+                showAlert(title: "重试完成（仍有失败）", message: result.summary)
+            } else {
+                showAlert(title: "重试成功", message: "所有失败项已重新添加并开始下载")
+            }
+
+            await loadBatchTasks()
+        }
+    }
+
+    /// 显示批量任务详情（含失败项）
+    private func showBatchTaskDetail(_ batchTask: BatchDownloadManager.BatchDownloadTask) {
+        let alertController = UIAlertController(
+            title: batchTask.name,
+            message: "成功项: \(batchTask.taskItems.count)\n失败项: \(batchTask.failedItems.count)",
+            preferredStyle: .actionSheet
+        )
+
+        // 如果有失败项，显示重试选项
+        if !batchTask.failedItems.isEmpty {
+            alertController.addAction(UIAlertAction(title: "重试失败项", style: .default) { [weak self] _ in
+                self?.retryFailedItems(batchId: batchTask.id)
+            })
+
+            alertController.addAction(UIAlertAction(title: "查看失败详情", style: .default) { [weak self] _ in
+                self?.showFailedItemsDetail(batchTask.failedItems)
+            })
+        }
+
+        alertController.addAction(UIAlertAction(title: "取消", style: .cancel))
+        present(alertController, animated: true)
+    }
+
+    /// 显示失败项详情
+    private func showFailedItemsDetail(_ failedItems: [BatchDownloadManager.BatchFailedItem]) {
+        var message = ""
+        for (index, item) in failedItems.enumerated() {
+            message += "\(index + 1). \(item.fileName)\n   原因: \(item.errorDescription)\n\n"
+        }
+
+        let alertController = UIAlertController(
+            title: "失败详情",
+            message: message,
+            preferredStyle: .alert
+        )
+        alertController.addAction(UIAlertAction(title: "确定", style: .default))
+        present(alertController, animated: true)
     }
 
     // MARK: - Private Methods
@@ -366,6 +424,8 @@ extension BatchDownloadViewController: UITableViewDataSource, UITableViewDelegat
             updateDeleteButton()
         } else {
             tableView.deselectRow(at: indexPath, animated: true)
+            let batchTask = batchTasks[indexPath.row]
+            showBatchTaskDetail(batchTask)
         }
     }
 

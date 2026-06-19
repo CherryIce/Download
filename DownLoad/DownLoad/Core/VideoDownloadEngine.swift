@@ -383,8 +383,8 @@ class VideoDownloadEngine {
         urls: [String],
         fileNames: [String]? = nil,
         configuration: DownloadConfiguration = .default
-    ) async throws -> BatchDownloadManager.BatchDownloadTask {
-        return try await BatchDownloadManager.shared.createBatchDownload(
+    ) async -> BatchDownloadManager.BatchDownloadResult {
+        return await BatchDownloadManager.shared.createBatchDownload(
             name: name,
             urls: urls,
             fileNames: fileNames,
@@ -423,10 +423,14 @@ class VideoDownloadEngine {
     }
 
     /// 获取批量下载进度
-    public func getBatchProgress(batchId: UUID) async -> (total: Int, completed: Int, downloading: Int, paused: Int, failed: Int)? {
+    public func getBatchProgress(batchId: UUID) async -> (total: Int, completed: Int, downloading: Int, paused: Int, failed: Int, failedInCreation: Int)? {
         return await BatchDownloadManager.shared.getBatchProgress(batchId: batchId)
     }
 
+    /// 重试批量任务中的失败项
+    public func retryFailedItems(batchId: UUID) async -> BatchDownloadManager.BatchDownloadResult? {
+        return await BatchDownloadManager.shared.retryFailedItems(batchId: batchId)
+    }
 
     /// 清空所有批量下载
     public func clearAllBatchDownloads() async {

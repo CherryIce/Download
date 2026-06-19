@@ -17,20 +17,53 @@ actor BatchDownloadManager {
 
     private init() {}
 
+    /// 批量任务失败项
+    struct BatchFailedItem: Identifiable {
+        let id: UUID
+        let url: String
+        let fileName: String
+        let errorDescription: String
+        let failedAt: Date
+
+        init(url: String, fileName: String, error: Error) {
+            self.id = UUID()
+            self.url = url
+            self.fileName = fileName
+            self.errorDescription = error.localizedDescription
+            self.failedAt = Date()
+        }
+    }
+
+    /// 批量下载创建结果
+    struct BatchDownloadResult {
+        let batchTask: BatchDownloadTask
+        let failedCount: Int
+        let hasFailures: Bool
+
+        var summary: String {
+            let total = batchTask.taskItems.count + batchTask.failedItems.count
+            let success = batchTask.taskItems.count
+            let failed = failedCount
+            return "共\(total)项，成功\(success)项，失败\(failed)项"
+        }
+    }
+
     /// 批量下载任务
     struct BatchDownloadTask: Identifiable {
         let id: UUID
         let name: String
-        let taskItems: [BatchTaskItem]
+        var taskItems: [BatchTaskItem]
         let createdAt: Date
         var state: BatchState
+        var failedItems: [BatchFailedItem]
 
-        init(id: UUID = UUID(), name: String, taskItems: [BatchTaskItem]) {
+        init(id: UUID = UUID(), name: String, taskItems: [BatchTaskItem], failedItems: [BatchFailedItem] = []) {
             self.id = id
             self.name = name
             self.taskItems = taskItems
             self.createdAt = Date()
             self.state = .pending
+            self.failedItems = failedItems
         }
     }
 
@@ -54,6 +87,7 @@ actor BatchDownloadManager {
         case paused
         case completed
         case failed
+        case partiallyFailed
         case cancelled
 
         var rawValue: String {
@@ -63,6 +97,7 @@ actor BatchDownloadManager {
             case .paused: return "Paused"
             case .completed: return "Completed"
             case .failed: return "Failed"
+            case .partiallyFailed: return "Partially Failed"
             case .cancelled: return "Cancelled"
             }
         }
@@ -74,13 +109,13 @@ actor BatchDownloadManager {
         urls: [String],
         fileNames: [String]? = nil,
         configuration: DownloadConfiguration = .default
-    ) async throws -> BatchDownloadTask {
+    ) async -> BatchDownloadResult {
 
         Logger.info("Creating batch download: \(name) with \(urls.count) URLs")
         print("🔥 BatchDownloadManager: 开始创建批量任务，URLs: \(urls)")
 
         var taskItems: [BatchTaskItem] = []
-        var tasks: [any DownloadTask] = []
+        var failedItems: [BatchFailedItem] = []
 
         // 创建下载任务
         for (index, url) in urls.enumerated() {
@@ -94,20 +129,31 @@ actor BatchDownloadManager {
                     configuration: configuration
                 )
                 print("✅ 任务创建成功: \(fileName)")
-                tasks.append(task)
                 taskItems.append(BatchTaskItem(task: task))
             } catch {
-                print("❌ 任务创建失败: \(error)")
-                throw error
+                print("❌ 任务创建失败: \(error)，记录失败项并继续")
+                let failedItem = BatchFailedItem(url: url, fileName: fileName, error: error)
+                failedItems.append(failedItem)
             }
         }
 
-        // 创建批量任务
-        let batchTask = BatchDownloadTask(name: name, taskItems: taskItems)
-        batchTasks[batchTask.id] = batchTask
-        print("✅ 批量任务创建完成，ID: \(batchTask.id)")
+        // 确定批量任务状态
+        let state: BatchState
+        if taskItems.isEmpty {
+            state = .failed
+        } else if !failedItems.isEmpty {
+            state = .partiallyFailed
+        } else {
+            state = .pending
+        }
 
-        return batchTask
+        // 创建批量任务
+        var batchTask = BatchDownloadTask(name: name, taskItems: taskItems, failedItems: failedItems)
+        batchTask.state = state
+        batchTasks[batchTask.id] = batchTask
+        print("✅ 批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
+
+        return BatchDownloadResult(batchTask: batchTask, failedCount: failedItems.count, hasFailures: !failedItems.isEmpty)
     }
 
     /// 开始批量下载
@@ -184,7 +230,14 @@ actor BatchDownloadManager {
     }
 
     /// 获取批量任务的进度
-    func getBatchProgress(batchId: UUID) async -> (total: Int, completed: Int, downloading: Int, paused: Int, failed: Int)? {
+    func getBatchProgress(batchId: UUID) async -> (
+        total: Int,
+        completed: Int,
+        downloading: Int,
+        paused: Int,
+        failed: Int,
+        failedInCreation: Int
+    )? {
         guard let batchTask = batchTasks[batchId] else {
             return nil
         }
@@ -212,12 +265,91 @@ actor BatchDownloadManager {
             }
         }
 
-        return (total: batchTask.taskItems.count, completed: completed, downloading: downloading, paused: paused, failed: failed)
+        let total = batchTask.taskItems.count + batchTask.failedItems.count
+        let failedInCreation = batchTask.failedItems.count
+
+        return (
+            total: total,
+            completed: completed,
+            downloading: downloading,
+            paused: paused,
+            failed: failed,
+            failedInCreation: failedInCreation
+        )
     }
 
     /// 获取批量任务（用于同步检查）
     /*nonisolated*/ func getBatchTaskForSync(batchId: UUID) -> BatchDownloadTask? {
         return batchTasks[batchId]
+    }
+
+    /// 重试批量任务中的失败项
+    func retryFailedItems(batchId: UUID) async -> BatchDownloadResult? {
+        guard var batchTask = batchTasks[batchId] else {
+            return nil
+        }
+
+        let failedItemsToRetry = batchTask.failedItems
+        guard !failedItemsToRetry.isEmpty else {
+            return nil
+        }
+
+        Logger.info("Retrying \(failedItemsToRetry.count) failed items for batch: \(batchTask.name)")
+
+        var newTaskItems: [BatchTaskItem] = []
+        var stillFailedItems: [BatchFailedItem] = []
+
+        for failedItem in failedItemsToRetry {
+            do {
+                let task = try await VideoDownloadEngine.shared.createDownloadTask(
+                    url: failedItem.url,
+                    fileName: failedItem.fileName,
+                    configuration: .default
+                )
+                newTaskItems.append(BatchTaskItem(task: task))
+            } catch {
+                let newFailedItem = BatchFailedItem(
+                    url: failedItem.url,
+                    fileName: failedItem.fileName,
+                    error: error
+                )
+                stillFailedItems.append(newFailedItem)
+            }
+        }
+
+        // 合并新成功的任务到现有任务列表
+        let allTaskItems = batchTask.taskItems + newTaskItems
+
+        // 更新批量任务
+        batchTask.taskItems = allTaskItems
+        batchTask.failedItems = stillFailedItems
+
+        // 重新计算状态
+        if allTaskItems.isEmpty {
+            batchTask.state = .failed
+        } else if !stillFailedItems.isEmpty {
+            batchTask.state = .partiallyFailed
+        } else {
+            batchTask.state = .pending
+        }
+
+        batchTasks[batchId] = batchTask
+
+        // 自动启动新添加的任务
+        if !newTaskItems.isEmpty {
+            for item in newTaskItems {
+                try? await VideoDownloadEngine.shared.startDownload(task: item.task)
+            }
+            if batchTask.state == .pending {
+                batchTasks[batchId]?.state = .downloading
+            }
+        }
+
+        return BatchDownloadResult(
+            batchTask: batchTask,
+            failedCount: stillFailedItems.count,
+            hasFailures: !stillFailedItems.isEmpty
+        )
     }
 
     /// 清空所有批量下载

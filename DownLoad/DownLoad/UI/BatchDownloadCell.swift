@@ -42,6 +42,15 @@ class BatchDownloadCell: UITableViewCell {
         return label
     }()
 
+    private let failedCountLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.systemFont(ofSize: 12)
+        label.textColor = .systemRed
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.isHidden = true
+        return label
+    }()
+
     private var separatorView: UIView?
     private var cancellables = Set<AnyCancellable>()
     private let engine = VideoDownloadEngine.shared
@@ -63,6 +72,7 @@ class BatchDownloadCell: UITableViewCell {
         contentView.addSubview(progressView)
         contentView.addSubview(progressLabel)
         contentView.addSubview(countLabel)
+        contentView.addSubview(failedCountLabel)
 
         NSLayoutConstraint.activate([
             nameLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
@@ -81,7 +91,10 @@ class BatchDownloadCell: UITableViewCell {
             progressLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
 
             countLabel.centerYAnchor.constraint(equalTo: statusLabel.centerYAnchor),
-            countLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+            countLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+
+            failedCountLabel.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 2),
+            failedCountLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
         ])
     }
 
@@ -138,11 +151,19 @@ class BatchDownloadCell: UITableViewCell {
             let completed = progress?.completed ?? 0
             let downloading = progress?.downloading ?? 0
             let paused = progress?.paused ?? 0
+            let failedInCreation = progress?.failedInCreation ?? 0
 
             await MainActor.run {
-                progressView.progress = Float(completed) / Float(total)
+                progressView.progress = total > 0 ? Float(completed) / Float(total) : 0
                 progressLabel.text = "\(completed)/\(total)"
                 countLabel.text = "下载中:\(downloading) 暂停:\(paused)"
+                
+                if failedInCreation > 0 {
+                    failedCountLabel.text = "创建失败:\(failedInCreation)"
+                    failedCountLabel.isHidden = false
+                } else {
+                    failedCountLabel.isHidden = true
+                }
             }
         }
     }
@@ -159,6 +180,8 @@ class BatchDownloadCell: UITableViewCell {
             statusLabel.textColor = .systemGreen
         case .failed:
             statusLabel.textColor = .systemRed
+        case .partiallyFailed:
+            statusLabel.textColor = .systemOrange
         case .cancelled:
             statusLabel.textColor = .gray
         }
@@ -170,6 +193,8 @@ class BatchDownloadCell: UITableViewCell {
         progressView.progress = 0
         progressLabel.text = ""
         countLabel.text = ""
+        failedCountLabel.isHidden = true
+        failedCountLabel.text = ""
         separatorView?.removeFromSuperview()
         separatorView = nil
     }
