@@ -13,6 +13,7 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
     private let parser: ThunderParser
     private let mp4Handler: MP4DownloadHandler
     private let m3u8Handler: M3U8DownloadHandler
+    private let networkClient: NetworkClient
 
     init(
         networkClient: NetworkClient,
@@ -21,6 +22,7 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
         self.parser = ThunderParser()
         self.mp4Handler = MP4DownloadHandler(networkClient: networkClient, storageManager: storageManager)
         self.m3u8Handler = M3U8DownloadHandler(networkClient: networkClient, storageManager: storageManager)
+        self.networkClient = networkClient
     }
 
     func createTask(
@@ -34,12 +36,12 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
 
         Logger.info("Thunder protocol decoded to: \(realURLString)")
 
-        // 2. 判断真实URL的格式
-        let format = detectVideoFormat(from: realURLString)
+        // 2. 判断真实URL的格式（使用共享的检测逻辑）
+        let format = await detectVideoFormat(from: realURLString)
 
         // 3. 委托给对应的Handler处理
         switch format {
-        case .mp4:
+        case .mp4, .webm, .mkv, .flv, .mov:
             return try await mp4Handler.createTask(
                 url: realURLString,
                 fileName: fileName,
@@ -57,16 +59,26 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
         }
     }
 
-    /// 检测视频格式
-    private func detectVideoFormat(from url: String) -> VideoFormat {
-        let lowercased = url.lowercased()
+    /// 检测视频格式（使用共享的 VideoFormatDetector + HEAD 请求）
+    private func detectVideoFormat(from url: String) async -> VideoFormat {
+        // 第一级：URL 字符串快速匹配
+        if let format = VideoFormatDetector.detectFromURLString(url) {
+            return format
+        }
 
-        if lowercased.contains(".m3u8") {
-            return .m3u8
-        } else if lowercased.contains(".mp4") {
+        // 第二级：HEAD 请求 Content-Type
+        guard let urlObj = URL(string: url) else {
             return .mp4
-        } else {
-            // 默认尝试作为MP4处理
+        }
+
+        do {
+            let headers = try await networkClient.fetchResponseHeaders(from: urlObj)
+            if let format = VideoFormatDetector.detectFromContentType(headers.contentType) {
+                return format
+            }
+            return .mp4
+        } catch {
+            Logger.warning("HEAD request failed for thunder format detection, defaulting to mp4")
             return .mp4
         }
     }

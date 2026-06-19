@@ -234,9 +234,10 @@ actor BatchDownloadManager {
 
     /// 从URL获取文件扩展名
     private func getFileExtension(from url: String) -> String {
-        let components = url.components(separatedBy: ".")
-        guard components.count > 1 else { return "mp4" }
-        return components.last?.lowercased() ?? "mp4"
+        if let format = VideoFormatDetector.detectFromURLString(url) {
+            return format.fileExtension
+        }
+        return "mp4"
     }
 }
 

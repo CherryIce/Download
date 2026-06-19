@@ -262,6 +262,55 @@ actor NetworkClient {
         return Int64(contentLength ?? "") ?? 0
     }
 
+    /// HEAD 请求响应头信息
+    struct ResponseHeaders {
+        let contentType: String?
+        let contentLength: Int64
+        let statusCode: Int
+    }
+
+    /// 获取远程资源的响应头（通过 HEAD 请求）
+    /// 用于格式检测等场景，不下载实际内容
+    func fetchResponseHeaders(from url: URL) async throws -> ResponseHeaders {
+        var lastError: Error?
+
+        for attempt in 0..<retryCount {
+            do {
+                var request = makeRequest(for: url)
+                request.httpMethod = "HEAD"
+                let (_, response) = try await session.data(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw NetworkError.invalidResponse
+                }
+
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    throw NetworkError.httpError(statusCode: httpResponse.statusCode)
+                }
+
+                let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")
+                let contentLengthStr = httpResponse.value(forHTTPHeaderField: "Content-Length")
+                let contentLength = Int64(contentLengthStr ?? "") ?? 0
+
+                return ResponseHeaders(
+                    contentType: contentType,
+                    contentLength: contentLength,
+                    statusCode: httpResponse.statusCode
+                )
+            } catch {
+                lastError = error
+                Logger.warning("HEAD request attempt \(attempt + 1) failed for \(url.absoluteString): \(error.localizedDescription)")
+
+                if attempt < retryCount - 1 {
+                    let delay = pow(2.0, Double(attempt))
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+            }
+        }
+
+        throw lastError ?? NetworkError.connectionError(NSError(domain: "NetworkClient", code: -1))
+    }
+
     /// 单次下载尝试（支持断点续传 + 可取消句柄）
     private func performSingleDownload(
         from url: URL,

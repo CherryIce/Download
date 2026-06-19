@@ -39,7 +39,7 @@ class VideoDownloadEngine {
     ) async throws -> any DownloadTask {
 
         // 1. 解析URL类型
-        let format = try detectVideoFormat(from: url)
+        let format = await detectVideoFormat(from: url)
 
         Logger.info("Creating download task for URL: \(url), format: \(format)")
         print("🔥 VideoDownloadEngine: 创建下载任务，URL: \(url), 格式: \(format)")
@@ -239,7 +239,7 @@ class VideoDownloadEngine {
                 // 根据格式创建对应的任务
                 let task: any DownloadTask
                 switch item.format {
-                case .mp4:
+                case .mp4, .webm, .mkv, .flv, .mov:
                     let mp4Task = MP4DownloadTask(
                         id: item.id,
                         url: item.url,
@@ -428,17 +428,35 @@ class VideoDownloadEngine {
     // MARK: - Private Methods
 
     /// 检测视频格式
-    private func detectVideoFormat(from url: String) throws -> VideoFormat {
-        let lowercased = url.lowercased()
+    /// 采用三级检测策略：
+    /// 1. URL 字符串快速匹配（无网络开销）
+    /// 2. HEAD 请求 Content-Type 检测（需要一次网络往返）
+    /// 3. 兜底默认 .mp4
+    private func detectVideoFormat(from url: String) async -> VideoFormat {
+        // 第一级：URL 字符串快速匹配
+        if let format = VideoFormatDetector.detectFromURLString(url) {
+            Logger.info("Format detected from URL string: \(format) for URL: \(url)")
+            return format
+        }
 
-        if lowercased.hasPrefix("thunder://") {
-            return .thunder
-        } else if lowercased.contains(".m3u8") {
-            return .m3u8
-        } else if lowercased.contains(".mp4") {
+        // 第二级：HEAD 请求 Content-Type 检测
+        guard let urlObj = URL(string: url) else {
+            Logger.warning("Invalid URL for format detection, defaulting to mp4: \(url)")
             return .mp4
-        } else {
-            // 尝试作为MP4处理
+        }
+
+        do {
+            let headers = try await networkClient.fetchResponseHeaders(from: urlObj)
+            if let format = VideoFormatDetector.detectFromContentType(headers.contentType) {
+                Logger.info("Format detected from Content-Type '\(headers.contentType ?? "nil")': \(format) for URL: \(url)")
+                return format
+            }
+
+            Logger.info("Content-Type '\(headers.contentType ?? "nil")' not recognized, defaulting to mp4 for URL: \(url)")
+            return .mp4
+        } catch {
+            // HEAD 请求失败，兜底为 mp4
+            Logger.warning("HEAD request failed for format detection (\(error.localizedDescription)), defaulting to mp4 for URL: \(url)")
             return .mp4
         }
     }
@@ -446,7 +464,7 @@ class VideoDownloadEngine {
     /// 创建对应的Handler
     private func createHandler(for format: VideoFormat, networkClient: NetworkClient) -> any DownloadHandlerProtocol {
         switch format {
-        case .mp4:
+        case .mp4, .webm, .mkv, .flv, .mov:
             return MP4DownloadHandler(networkClient: networkClient, storageManager: storageManager)
         case .m3u8:
             return M3U8DownloadHandler(networkClient: networkClient, storageManager: storageManager)
