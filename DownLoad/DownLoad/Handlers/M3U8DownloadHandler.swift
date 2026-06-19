@@ -87,6 +87,13 @@ class M3U8DownloadTask: DownloadTask {
     let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
     private(set) var completedURL: URL?
 
+    let format: VideoFormat = .m3u8
+    var totalSize: Int64?
+    var downloadedSize: Int64 = 0
+    let createdAt: Date = Date()
+    var completedAt: Date?
+    var resumeData: Data?
+
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
     private var downloadState: M3U8DownloadState
@@ -164,6 +171,7 @@ class M3U8DownloadTask: DownloadTask {
                 try? storageManager.deleteFile(at: tempDir)
 
                 self.completedURL = outputURL
+                self.completedAt = Date()
                 state.send(.completed)
 
             } catch is CancellationError {
@@ -222,6 +230,9 @@ class M3U8DownloadTask: DownloadTask {
         let total = downloadState.totalSegments
         let progressValue = Float(completed) / Float(total)
 
+        self.totalSize = Int64(total)
+        self.downloadedSize = Int64(completed)
+
         let now = Date().timeIntervalSince1970
         speedCalculator.addSample(bytes: Int64(completed), timestamp: now)
         let speed = speedCalculator.calculateSpeed()
@@ -273,6 +284,23 @@ class M3U8DownloadTask: DownloadTask {
         }
 
         return outputURL
+    }
+}
+
+extension M3U8DownloadTask {
+    func toDownloadItem() -> DownloadItem {
+        return DownloadItem(
+            id: id,
+            url: url,
+            format: format,
+            fileName: fileName,
+            totalSize: totalSize,
+            downloadedSize: downloadedSize,
+            state: state.value,
+            createdAt: createdAt,
+            completedAt: completedAt,
+            resumeData: resumeData
+        )
     }
 }
 

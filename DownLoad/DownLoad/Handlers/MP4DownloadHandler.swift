@@ -66,14 +66,18 @@ class MP4DownloadTask: DownloadTask {
     let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
     private(set) var completedURL: URL?
 
+    let format: VideoFormat = .mp4
+    var totalSize: Int64?
+    var downloadedSize: Int64 = 0
+    let createdAt: Date = Date()
+    var completedAt: Date?
+    var resumeData: Data?
+
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
     private let speedCalculator = SpeedCalculator()
     private var task: Task<Void, Error>?
     private var downloadHandle: ResumableDownloadHandle?
-
-    /// 断点续传数据，暂停时保存，恢复时传入
-    private(set) var resumeData: Data?
 
     init(
         id: UUID,
@@ -127,6 +131,8 @@ class MP4DownloadTask: DownloadTask {
                         remainingTime: remaining
                     )
 
+                    self.totalSize = total
+                    self.downloadedSize = downloaded
                     self.progress.send(progressInfo)
                 }
 
@@ -143,6 +149,7 @@ class MP4DownloadTask: DownloadTask {
                 self.downloadHandle = nil
 
                 self.completedURL = destinationURL
+                self.completedAt = Date()
                 state.send(.completed)
 
             } catch is CancellationError {
@@ -183,5 +190,22 @@ class MP4DownloadTask: DownloadTask {
         try? storageManager.deleteFile(at: tempDirectory)
 
         state.send(.cancelled)
+    }
+}
+
+extension MP4DownloadTask {
+    func toDownloadItem() -> DownloadItem {
+        return DownloadItem(
+            id: id,
+            url: url,
+            format: format,
+            fileName: fileName,
+            totalSize: totalSize,
+            downloadedSize: downloadedSize,
+            state: state.value,
+            createdAt: createdAt,
+            completedAt: completedAt,
+            resumeData: resumeData
+        )
     }
 }

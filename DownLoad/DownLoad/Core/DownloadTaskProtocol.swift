@@ -13,6 +13,12 @@ protocol DownloadTask: AnyObject {
     var id: UUID { get }
     var url: String { get }
     var fileName: String { get }
+    var format: VideoFormat { get }
+    var totalSize: Int64? { get }
+    var downloadedSize: Int64 { get }
+    var createdAt: Date { get }
+    var completedAt: Date? { get }
+    var resumeData: Data? { get }
     var configuration: DownloadConfiguration { get }
     var state: CurrentValueSubject<DownloadState, Never> { get }
     var progress: CurrentValueSubject<DownloadProgress, Never> { get }

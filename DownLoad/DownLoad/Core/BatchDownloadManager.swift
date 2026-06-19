@@ -14,7 +14,6 @@ actor BatchDownloadManager {
     static let shared = BatchDownloadManager()
 
     private var batchTasks: [UUID: BatchDownloadTask] = [:]
-    private let queueManager = DownloadQueueManager()
 
     private init() {}
 
@@ -120,10 +119,11 @@ actor BatchDownloadManager {
         Logger.info("Starting batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .downloading
 
-        // 将所有任务添加到队列，由 queueManager 自动调度并发执行
-        // 避免循环调用 startDownload 导致所有任务同时启动
+        // 任务已在 Engine 的 queueManager 中，只需确保状态正确
         for item in batchTask.taskItems {
-            await queueManager.addTask(item.task)
+            if await VideoDownloadEngine.shared.getTask(by: item.task.id) == nil {
+                try? await VideoDownloadEngine.shared.startDownload(task: item.task)
+            }
         }
     }
 
@@ -184,7 +184,7 @@ actor BatchDownloadManager {
     }
 
     /// 获取批量任务的进度
-    func getBatchProgress(batchId: UUID) -> (total: Int, completed: Int, downloading: Int, paused: Int, failed: Int)? {
+    func getBatchProgress(batchId: UUID) async -> (total: Int, completed: Int, downloading: Int, paused: Int, failed: Int)? {
         guard let batchTask = batchTasks[batchId] else {
             return nil
         }
@@ -195,7 +195,10 @@ actor BatchDownloadManager {
         var failed = 0
 
         for item in batchTask.taskItems {
-            switch item.task.state.value {
+            let task = await VideoDownloadEngine.shared.getTask(by: item.task.id)
+            let state = task?.state.value ?? item.task.state.value
+
+            switch state {
             case .completed:
                 completed += 1
             case .downloading:
@@ -204,9 +207,7 @@ actor BatchDownloadManager {
                 paused += 1
             case .failed:
                 failed += 1
-            case .cancelled:
-                break
-            default:
+            case .cancelled, .pending:
                 break
             }
         }

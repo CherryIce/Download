@@ -132,14 +132,19 @@ class BatchDownloadCell: UITableViewCell {
     }
 
     private func updateProgress(batchTask: BatchDownloadManager.BatchDownloadTask) {
-        let total = batchTask.taskItems.count
-        let completed = batchTask.taskItems.filter { $0.task.state.value == .completed }.count
-        let downloading = batchTask.taskItems.filter { $0.task.state.value == .downloading }.count
-        let paused = batchTask.taskItems.filter { $0.task.state.value == .paused }.count
+        Task {
+            let progress = await engine.getBatchProgress(batchId: batchTask.id)
+            let total = progress?.total ?? batchTask.taskItems.count
+            let completed = progress?.completed ?? 0
+            let downloading = progress?.downloading ?? 0
+            let paused = progress?.paused ?? 0
 
-        progressView.progress = Float(completed) / Float(total)
-        progressLabel.text = "\(completed)/\(total)"
-        countLabel.text = "总数: \(total)"
+            await MainActor.run {
+                progressView.progress = Float(completed) / Float(total)
+                progressLabel.text = "\(completed)/\(total)"
+                countLabel.text = "下载中:\(downloading) 暂停:\(paused)"
+            }
+        }
     }
 
     private func updateStatusColor(_ state: BatchDownloadManager.BatchState) {

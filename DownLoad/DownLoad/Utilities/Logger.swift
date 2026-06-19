@@ -30,4 +30,10 @@ struct Logger {
         os_log("[%@:%d] %@ - %@", log: logger, type: .debug, fileName, line, function, message)
         #endif
     }
+
+    static func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        let logger = OSLog(subsystem: subsystem, category: "Warning")
+        let fileName = (file as NSString).lastPathComponent
+        os_log("[%@:%d] %@ - %@", log: logger, type: .default, fileName, line, function, message)
+    }
 }

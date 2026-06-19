@@ -11,6 +11,12 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
     private(set) var completedURL: URL?
     private(set) var resumeData: Data?
 
+    let format: VideoFormat = .mp4
+    var totalSize: Int64?
+    var downloadedSize: Int64 = 0
+    let createdAt: Date = Date()
+    var completedAt: Date?
+
     private var urlSessionTask: URLSessionDownloadTask?
     private var urlSession: URLSession!
     private let speedCalculator = SpeedCalculator()
@@ -63,6 +69,9 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
 
 extension ResumableDownloadTask: URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        self.totalSize = totalBytesExpectedToWrite
+        self.downloadedSize = totalBytesWritten
+
         let now = Date().timeIntervalSince1970
         speedCalculator.addSample(bytes: totalBytesWritten, timestamp: now)
         let speed = speedCalculator.calculateSpeed()
@@ -82,6 +91,7 @@ extension ResumableDownloadTask: URLSessionDownloadDelegate {
         let destURL = FileStorageManager().completedDirectory().appendingPathComponent(fileName)
         try? FileManager.default.moveItem(at: location, to: destURL)
         completedURL = destURL
+        completedAt = Date()
         state.send(.completed)
     }
 }

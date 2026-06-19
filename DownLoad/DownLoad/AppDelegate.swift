@@ -18,6 +18,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 初始化后台下载会话
         _ = BackgroundDownloadSession.shared
 
+        // 恢复下载任务
+        Task {
+            await VideoDownloadEngine.shared.restoreTasksFromDatabase()
+        }
+
         return true
     }
 

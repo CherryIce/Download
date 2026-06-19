@@ -16,11 +16,19 @@ class VideoDownloadEngine {
     private let queueManager: DownloadQueueManager
     private let storageManager: FileStorageManager
     private let networkClient: NetworkClient
+    private let database: DownloadTaskDatabase
+    private var databaseCancellables: [UUID: AnyCancellable] = [:]
+    private var hasRestoredTasks = false
 
     private init() {
         self.queueManager = DownloadQueueManager()
         self.storageManager = FileStorageManager()
         self.networkClient = NetworkClient()
+        do {
+            self.database = try DownloadTaskDatabase()
+        } catch {
+            fatalError("Failed to initialize download task database: \(error)")
+        }
     }
 
     /// 创建下载任务
@@ -60,6 +68,10 @@ class VideoDownloadEngine {
         await queueManager.addTask(task)
         print("✅ 任务已添加到队列")
 
+        // 6. 保存到数据库并监听状态变化
+        persistTask(task)
+        observeTaskForDatabase(task)
+
         return task
     }
 
@@ -92,6 +104,7 @@ class VideoDownloadEngine {
         Logger.info("Cancelling download: \(task.id)")
         await task.cancel()
         await queueManager.removeTask(task.id)
+        deleteTaskRecord(task.id)
     }
 
     /// 删除下载任务
@@ -115,6 +128,9 @@ class VideoDownloadEngine {
             try? storageManager.deleteFile(at: url)
             Logger.info("Deleted completed file: \(url.path)")
         }
+
+        // 删除数据库记录
+        deleteTaskRecord(task.id)
     }
 
     /// 获取所有下载任务
@@ -140,6 +156,116 @@ class VideoDownloadEngine {
         try? storageManager.cleanDirectory(at: inProgressDir)
 
         Logger.info("All downloads cleared")
+
+        // 清空数据库
+        try? database.deleteAllRecords()
+    }
+
+    // MARK: - Database Persistence
+
+    /// 监听任务状态变化并同步到数据库
+    private func observeTaskForDatabase(_ task: any DownloadTask) {
+        let taskId = task.id
+
+        let cancellable = task.state
+            .dropFirst()
+            .debounce(for: .seconds(0.5), scheduler: DispatchQueue.global(qos: .utility))
+            .sink { [weak self] newState in
+                guard let self = self else { return }
+                Task {
+                    self.persistTask(task)
+                    if newState == .completed || newState == .failed || newState == .cancelled {
+                        self.databaseCancellables.removeValue(forKey: taskId)
+                    }
+                }
+            }
+
+        databaseCancellables[taskId] = cancellable
+    }
+
+    /// 将任务持久化到数据库
+    private func persistTask(_ task: any DownloadTask) {
+        if let mp4Task = task as? MP4DownloadTask {
+            let record = DownloadTaskRecord(from: mp4Task.toDownloadItem())
+            try? database.saveRecord(record)
+        } else if let m3u8Task = task as? M3U8DownloadTask {
+            let record = DownloadTaskRecord(from: m3u8Task.toDownloadItem())
+            try? database.saveRecord(record)
+        }
+    }
+
+    /// 从数据库删除任务记录
+    private func deleteTaskRecord(_ taskId: UUID) {
+        try? database.deleteRecord(byId: taskId)
+    }
+
+    /// 从数据库恢复未完成的任务
+    func restoreTasksFromDatabase() async {
+        guard !hasRestoredTasks else { return }
+        hasRestoredTasks = true
+
+        Logger.info("Restoring tasks from database...")
+
+        do {
+            let records = try database.loadAllRecords()
+            let incompleteRecords = records.filter { record in
+                let state = DownloadState(rawValue: record.state) ?? .pending
+                return state != .completed && state != .cancelled
+            }
+
+            Logger.info("Found \(incompleteRecords.count) incomplete tasks to restore")
+
+            for record in incompleteRecords {
+                // 避免重复添加
+                if await queueManager.getTask(by: record.id) != nil {
+                    continue
+                }
+
+                let item = record.toDownloadItem()
+
+                // 根据格式创建对应的任务
+                let task: any DownloadTask
+                switch item.format {
+                case .mp4:
+                    let mp4Task = MP4DownloadTask(
+                        id: item.id,
+                        url: item.url,
+                        fileName: item.fileName,
+                        configuration: .default,
+                        networkClient: networkClient,
+                        storageManager: storageManager
+                    )
+                    mp4Task.totalSize = item.totalSize
+                    mp4Task.downloadedSize = item.downloadedSize
+                    mp4Task.completedAt = item.completedAt
+                    if let resumeData = item.resumeData {
+                        mp4Task.resumeData = resumeData
+                    }
+                    task = mp4Task
+                case .m3u8:
+                    Logger.warning("M3U8 task restoration not fully supported yet, skipping: \(item.id)")
+                    continue
+                case .thunder:
+                    Logger.warning("Thunder task restoration not fully supported yet, skipping: \(item.id)")
+                    continue
+                }
+
+                // 添加到队列
+                await queueManager.addTask(task)
+                observeTaskForDatabase(task)
+
+                // 如果之前是下载中状态，设置为暂停
+                if item.state == .downloading {
+                    task.state.send(.paused)
+                } else {
+                    task.state.send(item.state)
+                }
+            }
+
+            Logger.info("Restored tasks from database")
+        } catch {
+            Logger.error("Failed to restore tasks from database: \(error)")
+        }
     }
 
     // MARK: - Batch Download Methods
