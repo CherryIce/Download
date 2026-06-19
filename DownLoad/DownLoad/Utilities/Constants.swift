@@ -29,4 +29,9 @@ struct Constants {
         static let progressUpdateInterval: TimeInterval = 0.1
         static let minProgressChange: Float = 0.01
     }
+
+    struct M3U8 {
+        static let maxConcurrentSegmentDownloads = 6  // M3U8片段最大并发下载数
+        static let mergeBufferSize = 256 * 1024       // 流式合并缓冲区大小：256KB
+    }
 }

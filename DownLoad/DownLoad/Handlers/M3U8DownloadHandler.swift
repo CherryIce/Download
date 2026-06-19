@@ -92,6 +92,7 @@ class M3U8DownloadTask: DownloadTask {
     private var downloadState: M3U8DownloadState
     private let speedCalculator = SpeedCalculator()
     private var task: Task<Void, Error>?
+    private let maxConcurrentSegments: Int
 
     init(
         id: UUID,
@@ -112,6 +113,7 @@ class M3U8DownloadTask: DownloadTask {
         self.networkClient = networkClient
         self.storageManager = storageManager
         self.downloadState = M3U8DownloadState(totalSegments: playlist.segments.count)
+        self.maxConcurrentSegments = Constants.M3U8.maxConcurrentSegmentDownloads
     }
 
     func resume() async throws {
@@ -126,7 +128,8 @@ class M3U8DownloadTask: DownloadTask {
                 let segmentsDir = tempDir.appendingPathComponent("segments")
                 try FileManager.default.createDirectory(at: segmentsDir, withIntermediateDirectories: true)
 
-                // 并发下载TS片段
+                // 并发下载TS片段（使用信号量限制并发数，防止OOM）
+                let semaphore = AsyncSemaphore(limit: maxConcurrentSegments)
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     for (index, segment) in playlist.segments.enumerated() {
                         // 跳过已完成的片段
@@ -134,7 +137,9 @@ class M3U8DownloadTask: DownloadTask {
                             continue
                         }
 
+                        await semaphore.wait()
                         group.addTask {
+                            defer { Task { await semaphore.signal() } }
                             try await self.downloadSegment(
                                 segment,
                                 index: index,
@@ -237,19 +242,33 @@ class M3U8DownloadTask: DownloadTask {
     private func mergeSegments(in directory: URL, to outputURL: URL) async throws -> URL {
         // 创建输出文件
         FileManager.default.createFile(atPath: outputURL.path, contents: nil, attributes: nil)
-        let outputHandle = try FileHandle(forWritingTo: outputURL)
+        guard let outputHandle = try? FileHandle(forWritingTo: outputURL) else {
+            throw DownloadError.taskFailed(NSError(domain: "M3U8Merge", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法创建输出文件"]))
+        }
 
         defer {
             outputHandle.closeFile()
         }
 
-        // 按顺序读取并合并所有TS片段
+        let bufferSize = Constants.M3U8.mergeBufferSize
+
+        // 按顺序流式读取并合并所有TS片段，避免将整个片段加载到内存
         for i in 0..<playlist.segments.count {
             let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", i)).ts")
 
-            if FileManager.default.fileExists(atPath: segmentURL.path) {
-                let data = try Data(contentsOf: segmentURL)
-                outputHandle.write(data)
+            guard FileManager.default.fileExists(atPath: segmentURL.path) else { continue }
+            guard let inputStream = InputStream(fileAtPath: segmentURL.path) else { continue }
+            inputStream.open()
+            defer { inputStream.close() }
+
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+            defer { buffer.deallocate() }
+
+            while inputStream.hasBytesAvailable {
+                let bytesRead = inputStream.read(buffer, maxLength: bufferSize)
+                if bytesRead <= 0 { break }
+                let chunk = Data(bytesNoCopy: buffer, count: bytesRead, deallocator: .none)
+                outputHandle.write(chunk)
             }
         }
 
@@ -301,5 +320,35 @@ class AESDecryptor {
 
         decryptedData.count = numBytesDecrypted
         return decryptedData
+    }
+}
+
+// MARK: - Async Semaphore
+
+/// 轻量级异步信号量，用于限制并发任务数
+private actor AsyncSemaphore {
+    private var count: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) {
+        self.count = limit
+    }
+
+    func wait() async {
+        if count > 0 {
+            count -= 1
+        } else {
+            await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+        }
+    }
+
+    func signal() {
+        if !waiters.isEmpty {
+            waiters.removeFirst().resume()
+        } else {
+            count += 1
+        }
     }
 }
