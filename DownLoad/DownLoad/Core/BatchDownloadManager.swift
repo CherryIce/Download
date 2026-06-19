@@ -165,9 +165,9 @@ actor BatchDownloadManager {
 
         Logger.info("Deleting batch download: \(batchTask.name)")
 
-        // 取消并删除任务
+        // 删除所有任务（包括已完成文件的清理）
         for item in batchTask.taskItems {
-            await VideoDownloadEngine.shared.cancelDownload(task: item.task)
+            await VideoDownloadEngine.shared.deleteDownloadTask(task: item.task)
         }
 
         batchTasks.removeValue(forKey: batchId)

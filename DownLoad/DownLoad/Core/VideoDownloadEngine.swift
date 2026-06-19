@@ -98,8 +98,12 @@ class VideoDownloadEngine {
     func deleteDownloadTask(task: any DownloadTask) async {
         Logger.info("Deleting download task: \(task.id)")
 
+        // 先保存 completedURL 和完成状态，因为 cancel() 会改变状态
+        let completedURL = task.completedURL
+        let isCompleted = task.state.value == .completed
+
         // 如果任务未完成，先取消
-        if task.state.value != .completed {
+        if !isCompleted {
             await task.cancel()
         }
 
@@ -107,9 +111,9 @@ class VideoDownloadEngine {
         await queueManager.removeTask(task.id)
 
         // 如果任务已完成，删除对应的文件
-        if task.state.value == .completed, let completedURL = task.completedURL {
-            try? storageManager.deleteFile(at: completedURL)
-            Logger.info("Deleted completed file: \(completedURL.path)")
+        if isCompleted, let url = completedURL {
+            try? storageManager.deleteFile(at: url)
+            Logger.info("Deleted completed file: \(url.path)")
         }
     }
 
