@@ -119,12 +119,49 @@ class M3U8DownloadTask: DownloadTask {
         self.configuration = configuration
         self.networkClient = networkClient
         self.storageManager = storageManager
-        self.downloadState = M3U8DownloadState(totalSegments: playlist.segments.count)
+        self.downloadState = M3U8DownloadState(
+            totalSegments: playlist.segments.count,
+            segmentURLs: playlist.segments.map { $0.url.absoluteString },
+            playlistIdentifier: playlist.segments.first?.url.absoluteString ?? url
+        )
         self.maxConcurrentSegments = Constants.M3U8.maxConcurrentSegmentDownloads
+    }
+
+    var stateFileURL: URL? {
+        let tempDir = storageManager.createTaskDirectory(taskId: id)
+        return tempDir.appendingPathComponent(Constants.M3U8.stateFileName)
+    }
+
+    private func saveDownloadState() {
+        guard let url = stateFileURL else { return }
+        do {
+            try storageManager.saveJSON(downloadState, to: url)
+        } catch {
+            Logger.error("Failed to save M3U8 download state: \(error)")
+        }
+    }
+
+    private func loadDownloadState() -> M3U8DownloadState? {
+        guard let url = stateFileURL,
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        do {
+            return try storageManager.loadJSON(from: url, as: M3U8DownloadState.self)
+        } catch {
+            Logger.error("Failed to load M3U8 download state: \(error)")
+            return nil
+        }
     }
 
     func resume() async throws {
         guard state.value != .downloading else { return }
+
+        // 尝试恢复之前保存的状态
+        if let savedState = loadDownloadState(),
+           savedState.totalSegments == playlist.segments.count,
+           savedState.playlistIdentifier == (playlist.segments.first?.url.absoluteString ?? url) {
+            self.downloadState = savedState
+            Logger.info("Restored M3U8 download state: \(savedState.completedSegments.count)/\(savedState.totalSegments) segments")
+        }
 
         state.send(.downloading)
 
@@ -134,6 +171,9 @@ class M3U8DownloadTask: DownloadTask {
                 let tempDir = storageManager.createTaskDirectory(taskId: id)
                 let segmentsDir = tempDir.appendingPathComponent("segments")
                 try FileManager.default.createDirectory(at: segmentsDir, withIntermediateDirectories: true)
+
+                // 预扫描已存在的片段，校准字节大小和 completedSegments
+                await calibrateDownloadedBytes(segmentsDir: segmentsDir)
 
                 // 并发下载TS片段（使用信号量限制并发数，防止OOM）
                 let semaphore = AsyncSemaphore(limit: maxConcurrentSegments)
@@ -147,14 +187,16 @@ class M3U8DownloadTask: DownloadTask {
                         await semaphore.wait()
                         group.addTask {
                             defer { Task { await semaphore.signal() } }
-                            try await self.downloadSegment(
+                            let segmentSize = try await self.downloadSegment(
                                 segment,
                                 index: index,
                                 to: segmentsDir
                             )
 
-                            // 更新进度
-                            await self.updateProgress(index: index)
+                            // 记录实际字节大小
+                            await self.recordSegmentSize(index: index, size: segmentSize)
+                            await self.updateProgress()
+                            self.saveDownloadState()
                         }
                     }
 
@@ -175,10 +217,12 @@ class M3U8DownloadTask: DownloadTask {
                 state.send(.completed)
 
             } catch is CancellationError {
-                state.send(.cancelled)
+                state.send(.paused)
+                saveDownloadState()
             } catch {
                 Logger.error("M3U8 download failed: \(error)")
                 state.send(.failed)
+                saveDownloadState()
                 throw DownloadError.taskFailed(error)
             }
         }
@@ -188,6 +232,7 @@ class M3U8DownloadTask: DownloadTask {
 
     func pause() async {
         task?.cancel()
+        saveDownloadState()
         state.send(.paused)
     }
 
@@ -203,7 +248,8 @@ class M3U8DownloadTask: DownloadTask {
 
     // MARK: - Private Methods
 
-    private func downloadSegment(_ segment: M3U8Segment, index: Int, to directory: URL) async throws {
+    @discardableResult
+    private func downloadSegment(_ segment: M3U8Segment, index: Int, to directory: URL) async throws -> Int64 {
         // 下载数据
         var data = try await networkClient.downloadData(from: segment.url)
 
@@ -215,6 +261,8 @@ class M3U8DownloadTask: DownloadTask {
         // 保存片段
         let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", index)).ts")
         try data.write(to: segmentURL)
+
+        return Int64(data.count)
     }
 
     private func decryptData(_ data: Data, key: Data, iv: Data?) throws -> Data {
@@ -223,25 +271,56 @@ class M3U8DownloadTask: DownloadTask {
         return try cryptor.decrypt(data)
     }
 
-    private func updateProgress(index: Int) async {
-        downloadState.completedSegments.insert(index)
+    private func recordSegmentSize(index: Int, size: Int64) {
+        downloadState.segmentByteSizes[index] = size
 
+        // 渐进式估算总大小
+        if downloadState.totalEstimatedBytes == nil,
+           downloadState.segmentByteSizes.count >= 3 {
+            let avgSize = downloadState.downloadedBytes / Int64(downloadState.segmentByteSizes.count)
+            downloadState.totalEstimatedBytes = avgSize * Int64(downloadState.totalSegments)
+        }
+    }
+
+    private func calibrateDownloadedBytes(segmentsDir: URL) async {
+        for i in 0..<playlist.segments.count {
+            let segmentURL = segmentsDir.appendingPathComponent("segment_\(String(format: "%05d", i)).ts")
+            if FileManager.default.fileExists(atPath: segmentURL.path) {
+                let size = storageManager.fileSize(at: segmentURL)
+                if size > 0 {
+                    downloadState.segmentByteSizes[i] = size
+                    downloadState.completedSegments.insert(i)
+                }
+            }
+        }
+
+        // 校准总估算大小
+        if !downloadState.segmentByteSizes.isEmpty {
+            let avgSize = downloadState.downloadedBytes / Int64(downloadState.segmentByteSizes.count)
+            downloadState.totalEstimatedBytes = avgSize * Int64(downloadState.totalSegments)
+        }
+    }
+
+    private func updateProgress() async {
         let completed = downloadState.completedSegments.count
         let total = downloadState.totalSegments
         let progressValue = Float(completed) / Float(total)
 
-        self.totalSize = Int64(total)
-        self.downloadedSize = Int64(completed)
+        let downloadedBytes = downloadState.downloadedBytes
+        let totalBytes = downloadState.totalEstimatedBytes ?? Int64(total) * 1_000_000
+
+        self.totalSize = totalBytes
+        self.downloadedSize = downloadedBytes
 
         let now = Date().timeIntervalSince1970
-        speedCalculator.addSample(bytes: Int64(completed), timestamp: now)
+        speedCalculator.addSample(bytes: downloadedBytes, timestamp: now)
         let speed = speedCalculator.calculateSpeed()
-        let remaining = speedCalculator.calculateRemainingTime(totalBytes: Int64(total), downloadedBytes: Int64(completed))
+        let remaining = speedCalculator.calculateRemainingTime(totalBytes: totalBytes, downloadedBytes: downloadedBytes)
 
         let progressInfo = DownloadProgress(
             taskId: id,
-            totalBytes: Int64(total),
-            downloadedBytes: Int64(completed),
+            totalBytes: totalBytes,
+            downloadedBytes: downloadedBytes,
             progress: progressValue,
             speed: speed,
             remainingTime: remaining

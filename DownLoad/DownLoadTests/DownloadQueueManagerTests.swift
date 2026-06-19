@@ -22,6 +22,13 @@ class MockDownloadTask: DownloadTask {
     let progress: CurrentValueSubject<DownloadProgress, Never>
     var completedURL: URL?
     
+    let format: VideoFormat = .mp4
+    var totalSize: Int64?
+    var downloadedSize: Int64 = 0
+    let createdAt: Date = Date()
+    var completedAt: Date?
+    var resumeData: Data?
+    
     private var shouldFail: Bool
     private var delay: TimeInterval
     

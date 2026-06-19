@@ -160,3 +160,24 @@ class FileStorageManager {
         }
     }
 }
+
+// MARK: - JSON Persistence Helpers
+
+extension FileStorageManager {
+    /// 保存 Codable 对象为 JSON 文件
+    func saveJSON<T: Codable>(_ object: T, to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .sortedKeys
+        let data = try encoder.encode(object)
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// 从 JSON 文件加载 Codable 对象
+    func loadJSON<T: Codable>(from url: URL, as type: T.Type) throws -> T {
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(type, from: data)
+    }
+}

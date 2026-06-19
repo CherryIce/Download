@@ -33,5 +33,6 @@ struct Constants {
     struct M3U8 {
         static let maxConcurrentSegmentDownloads = 6  // M3U8片段最大并发下载数
         static let mergeBufferSize = 256 * 1024       // 流式合并缓冲区大小：256KB
+        static let stateFileName = "download_state.json"  // M3U8下载状态文件名
     }
 }

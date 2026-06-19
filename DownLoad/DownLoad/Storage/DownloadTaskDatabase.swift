@@ -13,6 +13,7 @@ public struct DownloadTaskRecord: Codable {
     public let downloadedSize: Int64
     public let createdAt: Date
     public let completedAt: Date?
+    public let m3u8ResumeData: String?  // 新增：存储 M3U8 状态文件路径
 
     public init(
         id: UUID,
@@ -25,7 +26,8 @@ public struct DownloadTaskRecord: Codable {
         resumeData: Data? = nil,
         downloadedSize: Int64 = 0,
         createdAt: Date = Date(),
-        completedAt: Date? = nil
+        completedAt: Date? = nil,
+        m3u8ResumeData: String? = nil  // 新增
     ) {
         self.id = id
         self.url = url
@@ -38,13 +40,14 @@ public struct DownloadTaskRecord: Codable {
         self.downloadedSize = downloadedSize
         self.createdAt = createdAt
         self.completedAt = completedAt
+        self.m3u8ResumeData = m3u8ResumeData
     }
 }
 
 public class DownloadTaskDatabase {
     private var db: OpaquePointer?
     private let dbPath: String
-    private let currentSchemaVersion = 2
+    private let currentSchemaVersion = 3
 
     public init() throws {
         let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -80,7 +83,8 @@ public class DownloadTaskDatabase {
             resumeData BLOB,
             downloadedSize INTEGER NOT NULL DEFAULT 0,
             createdAt REAL NOT NULL,
-            completedAt REAL
+            completedAt REAL,
+            m3u8ResumeData TEXT  -- 新增
         );
         """
 
@@ -99,6 +103,10 @@ public class DownloadTaskDatabase {
         if version < 2 {
             try migrateV1ToV2()
             try setVersion(2)
+        }
+        if version < 3 {
+            try migrateV2ToV3()
+            try setVersion(3)
         }
     }
 
@@ -146,6 +154,11 @@ public class DownloadTaskDatabase {
         }
     }
 
+    private func migrateV2ToV3() throws {
+        let sql = "ALTER TABLE tasks ADD COLUMN m3u8ResumeData TEXT;"
+        try exec(sql)
+    }
+
     private func exec(_ sql: String) throws {
         if sqlite3_exec(db, sql, nil, nil, nil) != SQLITE_OK {
             let msgPtr = sqlite3_errmsg(db)
@@ -160,8 +173,8 @@ public class DownloadTaskDatabase {
         let sql = """
         INSERT OR REPLACE INTO tasks (
             id, url, fileName, state, progress,
-            totalSize, format, resumeData, downloadedSize, createdAt, completedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            totalSize, format, resumeData, downloadedSize, createdAt, completedAt, m3u8ResumeData
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         var stmt: OpaquePointer?
 
@@ -190,6 +203,7 @@ public class DownloadTaskDatabase {
         } else {
             sqlite3_bind_null(stmt, 11)
         }
+        sqlite3_bind_text(stmt, 12, record.m3u8ResumeData, -1, nil)
 
         let result = sqlite3_step(stmt)
         sqlite3_finalize(stmt)
@@ -206,7 +220,7 @@ public class DownloadTaskDatabase {
     public func loadAllRecords() throws -> [DownloadTaskRecord] {
         let sql = """
         SELECT id, url, fileName, state, progress,
-               totalSize, format, resumeData, downloadedSize, createdAt, completedAt
+               totalSize, format, resumeData, downloadedSize, createdAt, completedAt, m3u8ResumeData
         FROM tasks
         """
         return try queryRecords(sql: sql, stateFilter: nil)
@@ -215,7 +229,7 @@ public class DownloadTaskDatabase {
     public func loadRecords(byState state: String) throws -> [DownloadTaskRecord] {
         let sql = """
         SELECT id, url, fileName, state, progress,
-               totalSize, format, resumeData, downloadedSize, createdAt, completedAt
+               totalSize, format, resumeData, downloadedSize, createdAt, completedAt, m3u8ResumeData
         FROM tasks WHERE state = ?
         """
         return try queryRecords(sql: sql, stateFilter: state)
@@ -256,6 +270,10 @@ public class DownloadTaskDatabase {
             if sqlite3_column_type(stmt, 10) != SQLITE_NULL {
                 completedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 10))
             }
+            var m3u8ResumeData: String?
+            if sqlite3_column_type(stmt, 11) != SQLITE_NULL {
+                m3u8ResumeData = String(cString: sqlite3_column_text(stmt, 11))
+            }
 
             let record = DownloadTaskRecord(
                 id: id,
@@ -268,7 +286,8 @@ public class DownloadTaskDatabase {
                 resumeData: resumeData,
                 downloadedSize: downloadedSize,
                 createdAt: createdAt,
-                completedAt: completedAt
+                completedAt: completedAt,
+                m3u8ResumeData: m3u8ResumeData
             )
             records.append(record)
         }
@@ -329,7 +348,7 @@ public class DownloadTaskDatabase {
 // MARK: - DownloadItem Conversion
 
 extension DownloadTaskRecord {
-    init(from item: DownloadItem) {
+    init(from item: DownloadItem, m3u8ResumeData: String? = nil) {
         self.init(
             id: item.id,
             url: item.url,
@@ -341,7 +360,8 @@ extension DownloadTaskRecord {
             resumeData: item.resumeData,
             downloadedSize: item.downloadedSize,
             createdAt: item.createdAt,
-            completedAt: item.completedAt
+            completedAt: item.completedAt,
+            m3u8ResumeData: m3u8ResumeData
         )
     }
 

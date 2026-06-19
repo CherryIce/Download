@@ -189,7 +189,10 @@ class VideoDownloadEngine {
             let record = DownloadTaskRecord(from: mp4Task.toDownloadItem())
             try? database.saveRecord(record)
         } else if let m3u8Task = task as? M3U8DownloadTask {
-            let record = DownloadTaskRecord(from: m3u8Task.toDownloadItem())
+            let record = DownloadTaskRecord(
+                from: m3u8Task.toDownloadItem(),
+                m3u8ResumeData: m3u8Task.stateFileURL?.path
+            )
             try? database.saveRecord(record)
         }
     }
@@ -295,8 +298,51 @@ class VideoDownloadEngine {
                         task.state.send(.downloading)
                     }
                 case .m3u8:
-                    Logger.warning("M3U8 task restoration not fully supported yet, skipping: \(item.id)")
-                    continue
+                    do {
+                        guard let m3u8URL = URL(string: item.url) else {
+                            Logger.error("Invalid M3U8 URL for restored task: \(item.id)")
+                            continue
+                        }
+
+                        // 重新解析 M3U8
+                        let m3u8Content = try await networkClient.downloadString(from: m3u8URL)
+                        let playlist = try M3U8Parser().parse(content: m3u8Content, baseURL: m3u8URL)
+
+                        let mediaPlaylist: M3U8MediaPlaylist
+                        if let masterPlaylist = playlist as? M3U8MasterPlaylist {
+                            let variant = masterPlaylist.selectBestVariant()
+                            let variantContent = try await networkClient.downloadString(from: variant.url)
+                            mediaPlaylist = try M3U8Parser().parse(content: variantContent, baseURL: variant.url) as! M3U8MediaPlaylist
+                        } else {
+                            mediaPlaylist = playlist as! M3U8MediaPlaylist
+                        }
+
+                        // 恢复加密密钥
+                        var encryptionKey: Data?
+                        if mediaPlaylist.isEncrypted, let encryption = mediaPlaylist.segments.first?.encryption {
+                            encryptionKey = try await networkClient.downloadData(from: encryption.keyURL)
+                        }
+
+                        let m3u8Task = M3U8DownloadTask(
+                            id: item.id,
+                            url: item.url,
+                            playlist: mediaPlaylist,
+                            encryptionKey: encryptionKey,
+                            fileName: item.fileName,
+                            configuration: .default,
+                            networkClient: networkClient,
+                            storageManager: storageManager
+                        )
+
+                        m3u8Task.totalSize = item.totalSize
+                        m3u8Task.downloadedSize = item.downloadedSize
+                        m3u8Task.completedAt = item.completedAt
+
+                        task = m3u8Task
+                    } catch {
+                        Logger.error("Failed to restore M3U8 task \(item.id): \(error)")
+                        continue
+                    }
                 case .thunder:
                     Logger.warning("Thunder task restoration not fully supported yet, skipping: \(item.id)")
                     continue

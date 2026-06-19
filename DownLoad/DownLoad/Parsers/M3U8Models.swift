@@ -78,15 +78,30 @@ struct M3U8DownloadState: Codable {
     var failedSegments: Set<Int>
     var segmentURLs: [String]
 
-    init(totalSegments: Int, segmentURLs: [String] = []) {
+    // 新增：字节级跟踪
+    var segmentByteSizes: [Int: Int64]  // index -> 文件大小（字节）
+    var totalEstimatedBytes: Int64?     // 估算总字节数
+
+    // 新增：用于恢复时识别 playlist 是否变化
+    var playlistIdentifier: String?     // 存储 playlist URL
+
+    init(totalSegments: Int, segmentURLs: [String] = [], playlistIdentifier: String? = nil) {
         self.totalSegments = totalSegments
         self.completedSegments = []
         self.failedSegments = []
         self.segmentURLs = segmentURLs
+        self.segmentByteSizes = [:]
+        self.totalEstimatedBytes = nil
+        self.playlistIdentifier = playlistIdentifier
     }
 
     var progress: Float {
         guard totalSegments > 0 else { return 0 }
         return Float(completedSegments.count) / Float(totalSegments)
+    }
+
+    /// 已下载字节总数
+    var downloadedBytes: Int64 {
+        return segmentByteSizes.values.reduce(0, +)
     }
 }

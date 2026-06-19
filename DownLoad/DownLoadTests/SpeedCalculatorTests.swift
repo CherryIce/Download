@@ -201,4 +201,16 @@ struct SpeedCalculatorTests {
         let formatted = SpeedCalculator.formatTime(0)
         #expect(formatted == "计算中...", "0秒应格式化为 '计算中...'，实际为 '\(formatted)'")
     }
+
+    @Test("M3U8 进度使用字节而非片段计数")
+    func testM3U8ByteProgress() {
+        let calculator = SpeedCalculator()
+
+        // 模拟下载 3 个片段，每个 1MB
+        calculator.addSample(bytes: 0, timestamp: 0)
+        calculator.addSample(bytes: 3_145_728, timestamp: 3)  // 3MB in 3s
+
+        let speed = calculator.calculateSpeed()
+        #expect(speed == 1_048_576, "速度应为 1MB/s，实际为 \(speed)")
+    }
 }
