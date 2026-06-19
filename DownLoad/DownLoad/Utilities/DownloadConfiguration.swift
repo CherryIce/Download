@@ -15,13 +15,16 @@ struct DownloadConfiguration {
     let enableBackgroundDownload: Bool
     /// 自定义请求头，key 为请求头名称，value 为请求头值。为空时使用默认请求头。
     let customHeaders: [String: String]
+    /// 是否允许蜂窝网络下载（仅对当前任务有效）
+    let allowCellularDownload: Bool
 
     static let `default` = DownloadConfiguration(
         maxConcurrentDownloads: Constants.Network.maxConcurrentDownloads,
         timeoutInterval: Constants.Network.timeoutInterval,
         retryCount: Constants.Network.maxRetryCount,
         enableBackgroundDownload: true,
-        customHeaders: [:]
+        customHeaders: [:],
+        allowCellularDownload: Constants.NetworkMonitor.defaultAllowCellularDownload
     )
 
     /// 带自定义请求头的便捷构造方法
@@ -30,12 +33,14 @@ struct DownloadConfiguration {
         timeoutInterval: TimeInterval = Constants.Network.timeoutInterval,
         retryCount: Int = Constants.Network.maxRetryCount,
         enableBackgroundDownload: Bool = true,
-        customHeaders: [String: String] = [:]
+        customHeaders: [String: String] = [:],
+        allowCellularDownload: Bool = Constants.NetworkMonitor.defaultAllowCellularDownload
     ) {
         self.maxConcurrentDownloads = maxConcurrentDownloads
         self.timeoutInterval = timeoutInterval
         self.retryCount = retryCount
         self.enableBackgroundDownload = enableBackgroundDownload
         self.customHeaders = customHeaders
+        self.allowCellularDownload = allowCellularDownload
     }
 }

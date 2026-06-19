@@ -8,6 +8,13 @@
 import Foundation
 import Combine
 
+/// 暂停原因
+enum PauseReason: String, Codable {
+    case userInitiated       // 用户手动暂停
+    case networkLost         // 网络断开自动暂停
+    case cellularRestricted  // 蜂窝网络受限自动暂停
+}
+
 /// 下载任务协议
 protocol DownloadTask: AnyObject {
     var id: UUID { get }
@@ -24,7 +31,13 @@ protocol DownloadTask: AnyObject {
     var progress: CurrentValueSubject<DownloadProgress, Never> { get }
     var completedURL: URL? { get }
 
+    /// 当前暂停原因（nil 表示未被暂停或暂停原因未知）
+    var pauseReason: PauseReason? { get set }
+
     func resume() async throws
     func pause() async
     func cancel() async
+
+    /// 带原因的暂停（供 NetworkMonitor 调用）
+    func pause(reason: PauseReason) async
 }

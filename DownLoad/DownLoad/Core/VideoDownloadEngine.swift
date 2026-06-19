@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import Network
 
 /// 视频下载引擎
 class VideoDownloadEngine {
@@ -20,6 +21,14 @@ class VideoDownloadEngine {
     private var databaseCancellables: [UUID: AnyCancellable] = [:]
     private var hasRestoredTasks = false
 
+    // MARK: - Network Monitoring
+
+    private var networkCancellables: Set<AnyCancellable> = []
+    /// 网络恢复延迟任务（用于防抖）
+    private var networkRestoreWorkItem: DispatchWorkItem?
+    /// 网络断开延迟任务（用于防抖）
+    private var networkLostWorkItem: DispatchWorkItem?
+
     private init() {
         self.queueManager = DownloadQueueManager()
         self.storageManager = FileStorageManager()
@@ -29,6 +38,119 @@ class VideoDownloadEngine {
         } catch {
             fatalError("Failed to initialize download task database: \(error)")
         }
+
+        // 初始化网络监控订阅
+        setupNetworkMonitoring()
+    }
+
+    // MARK: - Network Monitoring
+
+    /// 设置网络状态监控订阅
+    private func setupNetworkMonitoring() {
+        let monitor = NetworkMonitor.shared
+
+        // 订阅网络状态变更
+        monitor.statusChanged
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newStatus in
+                self?.handleNetworkStatusChange(newStatus)
+            }
+            .store(in: &networkCancellables)
+    }
+
+    /// 处理网络状态变化
+    private func handleNetworkStatusChange(_ newStatus: NetworkStatus) {
+        // 取消之前的延迟任务（防抖）
+        networkLostWorkItem?.cancel()
+        networkRestoreWorkItem?.cancel()
+
+        if newStatus == .unavailable {
+            // 网络断开：延迟一小段时间后暂停所有下载任务
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.pauseAllDownloadingTasks(reason: .networkLost)
+            }
+            networkLostWorkItem = workItem
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Constants.NetworkMonitor.networkLostDelay,
+                execute: workItem
+            )
+            Logger.info("Network lost detected, will pause downloads in \(Constants.NetworkMonitor.networkLostDelay)s")
+
+        } else if newStatus == .cellular && !NetworkMonitor.shared.isCellularAllowed {
+            // 蜂窝网络但不允许蜂窝下载：暂停所有任务
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.pauseAllDownloadingTasks(reason: .cellularRestricted)
+            }
+            networkLostWorkItem = workItem
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Constants.NetworkMonitor.networkLostDelay,
+                execute: workItem
+            )
+            Logger.info("Cellular network detected but cellular download disabled, will pause downloads")
+
+        } else {
+            // 网络恢复（WiFi 或允许的蜂窝）：延迟后恢复因网络断开暂停的任务
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.resumeNetworkPausedTasks()
+            }
+            networkRestoreWorkItem = workItem
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Constants.NetworkMonitor.networkRestoreDelay,
+                execute: workItem
+            )
+            Logger.info("Network restored (\(newStatus)), will resume paused downloads in \(Constants.NetworkMonitor.networkRestoreDelay)s")
+        }
+    }
+
+    /// 暂停所有正在下载的任务（因网络原因）
+    private func pauseAllDownloadingTasks(reason: PauseReason) {
+        Task { [weak self] in
+            guard let self = self else { return }
+            let allTasks = await self.queueManager.getAllTasks()
+            var pausedCount = 0
+
+            for task in allTasks {
+                // 只暂停正在下载中的任务
+                if task.state.value == .downloading {
+                    await task.pause(reason: reason)
+                    pausedCount += 1
+                }
+            }
+
+            Logger.info("Paused \(pausedCount) downloading tasks due to: \(reason.rawValue)")
+        }
+    }
+
+    /// 恢复因网络断开而暂停的任务
+    /// 注意：用户手动暂停的任务（pauseReason == .userInitiated）不会被恢复
+    private func resumeNetworkPausedTasks() {
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            // 再次检查网络是否可用（防止延迟期间网络又断了）
+            guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
+                Logger.info("Network no longer available, skipping auto-resume")
+                return
+            }
+
+            let allTasks = await self.queueManager.getAllTasks()
+            var resumedCount = 0
+
+            for task in allTasks {
+                // 只恢复因网络原因暂停的任务
+                if task.state.value == .paused,
+                   task.pauseReason == .networkLost || task.pauseReason == .cellularRestricted {
+                    do {
+                        try await task.resume()
+                        resumedCount += 1
+                    } catch {
+                        Logger.error("Failed to resume network-paused task \(task.id): \(error)")
+                    }
+                }
+            }
+
+            Logger.info("Resumed \(resumedCount) network-paused tasks")
+        }
     }
 
     /// 创建下载任务
@@ -37,6 +159,16 @@ class VideoDownloadEngine {
         fileName: String? = nil,
         configuration: DownloadConfiguration = .default
     ) async throws -> any DownloadTask {
+
+        // 检查网络是否可用
+        guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
+            Logger.warning("Cannot create download task: network not available for downloads")
+            throw DownloadError.networkError(
+                NSError(domain: "NetworkMonitor", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "网络不可用，无法创建下载任务"
+                ])
+            )
+        }
 
         // 1. 解析URL类型
         let format = await detectVideoFormat(from: url)
@@ -80,6 +212,16 @@ class VideoDownloadEngine {
     /// 任务已经由 queueManager 在 addTask 时自动调度，此方法仅用于外部显式触发（如暂停后恢复）
     func startDownload(task: any DownloadTask) async throws {
         Logger.info("Requesting start for download: \(task.id)")
+
+        // 检查网络是否可用
+        guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
+            Logger.warning("Cannot start download: network not available for downloads")
+            throw DownloadError.networkError(
+                NSError(domain: "NetworkMonitor", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "网络不可用，无法开始下载"
+                ])
+            )
+        }
 
         // 检查任务是否已在队列中
         if await queueManager.getTask(by: task.id) == nil {

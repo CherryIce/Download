@@ -36,4 +36,14 @@ struct Constants {
         static let stateFileName = "download_state.json"  // M3U8下载状态文件名
         static let maxEncryptionKeys: Int = 10        // 密钥轮换数量上限
     }
+
+    /// 网络监控相关常量
+    struct NetworkMonitor {
+        /// 网络状态变更后的恢复延迟（秒），避免网络短暂波动导致频繁暂停/恢复
+        static let networkRestoreDelay: TimeInterval = 2.0
+        /// 网络断开后的暂停延迟（秒），给系统一点缓冲时间
+        static let networkLostDelay: TimeInterval = 0.5
+        /// 默认是否允许蜂窝网络下载
+        static let defaultAllowCellularDownload = true
+    }
 }

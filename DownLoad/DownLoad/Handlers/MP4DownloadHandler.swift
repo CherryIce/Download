@@ -97,6 +97,9 @@ class MP4DownloadTask: DownloadTask {
 
     private var terminationReason: TaskTerminationReason = .none
 
+    /// 暂停原因（用于区分用户手动暂停和网络自动暂停）
+    var pauseReason: PauseReason? = nil
+
     /// 标记下载完成（供外部如恢复场景使用）
     func markCompleted(url: URL) {
         self.completedURL = url
@@ -125,6 +128,9 @@ class MP4DownloadTask: DownloadTask {
 
     func resume() async throws {
         guard state.value != .downloading else { return }
+
+        // 恢复时清除暂停原因
+        pauseReason = nil
 
         state.send(.downloading)
 
@@ -381,6 +387,11 @@ class MP4DownloadTask: DownloadTask {
     }
 
     func pause() async {
+        // 如果没有外部指定原因，默认为用户手动暂停
+        if pauseReason == nil {
+            pauseReason = .userInitiated
+        }
+
         terminationReason = .pauseRequested
         defer { terminationReason = .none }
 
@@ -414,7 +425,8 @@ class MP4DownloadTask: DownloadTask {
         terminationReason = .cancelRequested
         defer { terminationReason = .none }
 
-        // 取消时清除 resumeData（不保留恢复能力）
+        // 取消时清除暂停原因（不保留恢复能力）
+        pauseReason = nil
         resumeData = nil
 
         if useBackgroundDownload {
@@ -436,6 +448,13 @@ class MP4DownloadTask: DownloadTask {
         try? storageManager.deleteFile(at: tempDirectory)
 
         state.send(.cancelled)
+    }
+
+    /// 带原因的暂停（供网络监控使用）
+    func pause(reason: PauseReason) async {
+        pauseReason = reason
+        Logger.info("MP4 task \(id) paused due to: \(reason.rawValue)")
+        await pause()
     }
 }
 

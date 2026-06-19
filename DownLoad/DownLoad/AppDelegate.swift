@@ -15,6 +15,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
 
+        // 初始化网络监控（触发 NWPathMonitor 启动）
+        _ = NetworkMonitor.shared
+
         // 初始化后台下载会话
         _ = BackgroundDownloadSession.shared
 

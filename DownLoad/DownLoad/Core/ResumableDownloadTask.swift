@@ -21,6 +21,9 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
     private var urlSession: URLSession!
     private let speedCalculator = SpeedCalculator()
 
+    /// 暂停原因（用于区分用户手动暂停和网络自动暂停）
+    var pauseReason: PauseReason? = nil
+
     init(url: String, fileName: String, configuration: DownloadConfiguration) {
         self.url = url
         self.fileName = fileName
@@ -34,6 +37,9 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
     }
 
     func resume() async throws {
+        // 恢复时清除暂停原因
+        pauseReason = nil
+
         if let resumeData = resumeData {
             urlSessionTask = urlSession.downloadTask(withResumeData: resumeData)
         } else if let fileURL = URL(string: url) {
@@ -49,6 +55,11 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
     }
 
     func pause() async {
+        // 如果没有外部指定原因，默认为用户手动暂停
+        if pauseReason == nil {
+            pauseReason = .userInitiated
+        }
+
         urlSessionTask?.cancel(byProducingResumeData: {[weak self] data in
             self?.resumeData = data
         })
@@ -56,8 +67,18 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
     }
 
     func cancel() async {
+        // 取消时清除暂停原因
+        pauseReason = nil
+
         urlSessionTask?.cancel()
         state.send(.cancelled)
+    }
+
+    /// 带原因的暂停（供网络监控使用）
+    func pause(reason: PauseReason) async {
+        pauseReason = reason
+        Logger.info("Resumable task \(id) paused due to: \(reason.rawValue)")
+        await pause()
     }
 
     static private func localFileSize(for filename: String) -> Int64 {

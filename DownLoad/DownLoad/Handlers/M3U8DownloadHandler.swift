@@ -114,6 +114,9 @@ class M3U8DownloadTask: DownloadTask {
     private var task: Task<Void, Error>?
     private let maxConcurrentSegments: Int
 
+    /// 暂停原因（用于区分用户手动暂停和网络自动暂停）
+    var pauseReason: PauseReason? = nil
+
     init(
         id: UUID,
         url: String,
@@ -168,6 +171,9 @@ class M3U8DownloadTask: DownloadTask {
 
     func resume() async throws {
         guard state.value != .downloading else { return }
+
+        // 恢复时清除暂停原因
+        pauseReason = nil
 
         // 尝试恢复之前保存的状态
         if let savedState = loadDownloadState(),
@@ -256,12 +262,20 @@ class M3U8DownloadTask: DownloadTask {
     }
 
     func pause() async {
+        // 如果没有外部指定原因，默认为用户手动暂停
+        if pauseReason == nil {
+            pauseReason = .userInitiated
+        }
+
         task?.cancel()
         saveDownloadState()
         state.send(.paused)
     }
 
     func cancel() async {
+        // 取消时清除暂停原因
+        pauseReason = nil
+
         task?.cancel()
 
         // 清理临时文件
@@ -269,6 +283,13 @@ class M3U8DownloadTask: DownloadTask {
         try? storageManager.deleteFile(at: tempDir)
 
         state.send(.cancelled)
+    }
+
+    /// 带原因的暂停（供网络监控使用）
+    func pause(reason: PauseReason) async {
+        pauseReason = reason
+        Logger.info("M3U8 task \(id) paused due to: \(reason.rawValue)")
+        await pause()
     }
 
     // MARK: - Private Methods
