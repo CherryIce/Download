@@ -60,7 +60,8 @@ class VideoDownloadEngine {
         let task = try await handler.createTask(
             url: url,
             fileName: fileName,
-            configuration: configuration
+            configuration: configuration,
+            format: format
         )
         print("✅ 下载任务创建成功: \(task.fileName ?? "未知文件名")")
 
@@ -246,7 +247,8 @@ class VideoDownloadEngine {
                         fileName: item.fileName,
                         configuration: .default,
                         networkClient: networkClient,
-                        storageManager: storageManager
+                        storageManager: storageManager,
+                        format: item.format
                     )
                     mp4Task.totalSize = item.totalSize
                     mp4Task.downloadedSize = item.downloadedSize

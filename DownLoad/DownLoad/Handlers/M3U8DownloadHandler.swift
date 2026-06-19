@@ -25,7 +25,8 @@ class M3U8DownloadHandler: DownloadHandlerProtocol {
     func createTask(
         url: String,
         fileName: String?,
-        configuration: DownloadConfiguration
+        configuration: DownloadConfiguration,
+        format: VideoFormat
     ) async throws -> any DownloadTask {
         guard let m3u8URL = URL(string: url) else {
             throw DownloadError.invalidURL(url)

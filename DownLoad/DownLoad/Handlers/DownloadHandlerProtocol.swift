@@ -12,6 +12,7 @@ protocol DownloadHandlerProtocol {
     func createTask(
         url: String,
         fileName: String?,
-        configuration: DownloadConfiguration
+        configuration: DownloadConfiguration,
+        format: VideoFormat
     ) async throws -> any DownloadTask
 }

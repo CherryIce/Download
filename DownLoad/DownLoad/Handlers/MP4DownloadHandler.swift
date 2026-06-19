@@ -22,7 +22,8 @@ class MP4DownloadHandler: DownloadHandlerProtocol {
     func createTask(
         url: String,
         fileName: String?,
-        configuration: DownloadConfiguration
+        configuration: DownloadConfiguration,
+        format: VideoFormat
     ) async throws -> any DownloadTask {
         guard let videoURL = URL(string: url) else {
             throw DownloadError.invalidURL(url)
@@ -39,7 +40,7 @@ class MP4DownloadHandler: DownloadHandlerProtocol {
         try storageManager.checkAvailableSpace(requiredBytes: requiredBytes)
 
         let taskId = UUID()
-        let finalFileName = fileName ?? "video_\(taskId.uuidString).mp4"
+        let finalFileName = fileName ?? "video_\(taskId.uuidString).\(format.fileExtension)"
 
         let task = MP4DownloadTask(
             id: taskId,
@@ -47,7 +48,8 @@ class MP4DownloadHandler: DownloadHandlerProtocol {
             fileName: finalFileName,
             configuration: configuration,
             networkClient: networkClient,
-            storageManager: storageManager
+            storageManager: storageManager,
+            format: format
         )
 
         return task
@@ -66,7 +68,7 @@ class MP4DownloadTask: DownloadTask {
     let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
     private(set) var completedURL: URL?
 
-    let format: VideoFormat = .mp4
+    let format: VideoFormat
     var totalSize: Int64?
     var downloadedSize: Int64 = 0
     let createdAt: Date = Date()
@@ -109,7 +111,8 @@ class MP4DownloadTask: DownloadTask {
         fileName: String,
         configuration: DownloadConfiguration,
         networkClient: NetworkClient,
-        storageManager: FileStorageManager
+        storageManager: FileStorageManager,
+        format: VideoFormat = .mp4
     ) {
         self.id = id
         self.url = url
@@ -117,6 +120,7 @@ class MP4DownloadTask: DownloadTask {
         self.configuration = configuration
         self.networkClient = networkClient
         self.storageManager = storageManager
+        self.format = format
     }
 
     func resume() async throws {

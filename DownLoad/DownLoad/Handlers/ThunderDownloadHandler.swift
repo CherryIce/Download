@@ -28,7 +28,8 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
     func createTask(
         url: String,
         fileName: String?,
-        configuration: DownloadConfiguration
+        configuration: DownloadConfiguration,
+        format: VideoFormat
     ) async throws -> any DownloadTask {
         // 1. 解析迅雷链接获取真实URL
         let realURL = try parser.parse(thunderURL: url)
@@ -45,13 +46,15 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
             return try await mp4Handler.createTask(
                 url: realURLString,
                 fileName: fileName,
-                configuration: configuration
+                configuration: configuration,
+                format: format
             )
         case .m3u8:
             return try await m3u8Handler.createTask(
                 url: realURLString,
                 fileName: fileName,
-                configuration: configuration
+                configuration: configuration,
+                format: format
             )
         case .thunder:
             // 如果还是迅雷协议，抛出错误避免无限递归
