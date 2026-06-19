@@ -262,16 +262,22 @@ actor NetworkClient {
         return Int64(contentLength ?? "") ?? 0
     }
 
-    /// 下载文件（支持断点续传 + 可取消句柄，用于 MP4DownloadTask 暂停/恢复场景）
-    func downloadFileWithResumeCancellable(
+    /// 单次下载尝试（支持断点续传 + 可取消句柄）
+    private func performSingleDownload(
         from url: URL,
         to destinationURL: URL,
-        resumeData: Data? = nil,
+        resumeData: Data?,
         progress: @escaping (Int64, Int64) -> Void
     ) async throws -> (URL, ResumableDownloadHandle) {
         return try await withCheckedThrowingContinuation { continuation in
             let delegate = DownloadDelegate(progress: progress)
             let downloadSession = URLSession(configuration: session.configuration, delegate: delegate, delegateQueue: nil)
+
+            var savedResumeData: Data?
+
+            delegate.resumeDataHandler = { data in
+                savedResumeData = data
+            }
 
             let downloadTask: URLSessionDownloadTask
             if let resumeData = resumeData {
@@ -300,11 +306,46 @@ actor NetworkClient {
                         continuation.resume(throwing: error)
                     }
                 case .failure(let error):
-                    continuation.resume(throwing: error)
+                    let wrappedError = NetworkError.resumeError(
+                        underlying: error,
+                        resumeData: savedResumeData
+                    )
+                    continuation.resume(throwing: wrappedError)
                 }
             }
 
             downloadTask.resume()
         }
+    }
+
+    /// 下载文件（支持断点续传 + 可取消句柄，用于 MP4DownloadTask 暂停/恢复场景）
+    func downloadFileWithResumeCancellable(
+        from url: URL,
+        to destinationURL: URL,
+        resumeData: Data? = nil,
+        progress: @escaping (Int64, Int64) -> Void
+    ) async throws -> (URL, ResumableDownloadHandle) {
+        var lastError: Error?
+
+        for attempt in 0..<retryCount {
+            do {
+                return try await performSingleDownload(
+                    from: url,
+                    to: destinationURL,
+                    resumeData: resumeData,
+                    progress: progress
+                )
+            } catch {
+                lastError = error
+                Logger.error("Download cancellable attempt \(attempt + 1) failed: \(error.localizedDescription)")
+
+                if attempt < retryCount - 1 {
+                    let delay = pow(2.0, Double(attempt))
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+            }
+        }
+
+        throw lastError ?? NetworkError.connectionError(NSError(domain: "NetworkClient", code: -1))
     }
 }
