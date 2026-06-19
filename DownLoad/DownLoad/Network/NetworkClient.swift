@@ -7,6 +7,31 @@
 
 import Foundation
 
+// MARK: - 可取消的下载任务句柄（支持暂停时获取 resumeData）
+
+/// 可取消的下载任务句柄，支持暂停时通过 cancel(byProducingResumeData:) 获取 resumeData
+class ResumableDownloadHandle {
+    private let urlSessionTask: URLSessionDownloadTask
+    private var _resumeData: Data?
+
+    init(urlSessionTask: URLSessionDownloadTask) {
+        self.urlSessionTask = urlSessionTask
+    }
+
+    /// 暂停下载并保存 resumeData，供下次恢复使用
+    func cancelWithResumeData() async -> Data? {
+        await withCheckedContinuation { continuation in
+            self.urlSessionTask.cancel(byProducingResumeData: { data in
+                self._resumeData = data
+                continuation.resume(returning: data)
+            })
+        }
+    }
+
+    /// 最近一次暂停保存的 resumeData
+    var resumeData: Data? { _resumeData }
+}
+
 // MARK: - Download Delegate（内部辅助类，用于接收 URLSession 下载进度回调）
 
 private class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
@@ -198,6 +223,51 @@ actor NetworkClient {
             } else {
                 downloadTask = downloadSession.downloadTask(with: url)
             }
+            downloadTask.resume()
+        }
+    }
+
+    /// 下载文件（支持断点续传 + 可取消句柄，用于 MP4DownloadTask 暂停/恢复场景）
+    func downloadFileWithResumeCancellable(
+        from url: URL,
+        to destinationURL: URL,
+        resumeData: Data? = nil,
+        progress: @escaping (Int64, Int64) -> Void
+    ) async throws -> (URL, ResumableDownloadHandle) {
+        return try await withCheckedThrowingContinuation { continuation in
+            let delegate = DownloadDelegate(progress: progress)
+            let downloadSession = URLSession(configuration: session.configuration, delegate: delegate, delegateQueue: nil)
+
+            let downloadTask: URLSessionDownloadTask
+            if let resumeData = resumeData {
+                downloadTask = downloadSession.downloadTask(withResumeData: resumeData)
+            } else {
+                downloadTask = downloadSession.downloadTask(with: url)
+            }
+
+            let handle = ResumableDownloadHandle(urlSessionTask: downloadTask)
+
+            delegate.completionHandler = { result in
+                switch result {
+                case .success(let tempURL):
+                    do {
+                        let dir = destinationURL.deletingLastPathComponent()
+                        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                        if FileManager.default.fileExists(atPath: destinationURL.path) {
+                            try FileManager.default.removeItem(at: destinationURL)
+                        }
+                        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                        let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
+                        progress(size, size)
+                        continuation.resume(returning: (destinationURL, handle))
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+
             downloadTask.resume()
         }
     }

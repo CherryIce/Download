@@ -47,7 +47,7 @@ class MP4DownloadHandler: DownloadHandlerProtocol {
     }
 }
 
-/// MP4下载任务
+/// MP4下载任务（支持断点续传）
 class MP4DownloadTask: DownloadTask {
 
     let id: UUID
@@ -63,6 +63,10 @@ class MP4DownloadTask: DownloadTask {
     private let storageManager: FileStorageManager
     private let speedCalculator = SpeedCalculator()
     private var task: Task<Void, Error>?
+    private var downloadHandle: ResumableDownloadHandle?
+
+    /// 断点续传数据，暂停时保存，恢复时传入
+    private(set) var resumeData: Data?
 
     init(
         id: UUID,
@@ -94,10 +98,11 @@ class MP4DownloadTask: DownloadTask {
                 let tempDirectory = storageManager.createTaskDirectory(taskId: id)
                 let tempFileURL = tempDirectory.appendingPathComponent("download.tmp")
 
-                // 下载文件
-                let _ = try await networkClient.downloadFile(
+                // 使用支持断点续传的可取消下载方法，传入之前保存的 resumeData
+                let (downloadedURL, handle) = try await networkClient.downloadFileWithResumeCancellable(
                     from: videoURL,
-                    to: tempFileURL
+                    to: tempFileURL,
+                    resumeData: resumeData
                 ) { [weak self] downloaded, total in
                     guard let self = self else { return }
 
@@ -118,17 +123,23 @@ class MP4DownloadTask: DownloadTask {
                     self.progress.send(progressInfo)
                 }
 
+                // 保存句柄，供 pause() 使用
+                self.downloadHandle = handle
+
                 // 移动到完成目录
                 let destinationURL = storageManager.completedDirectory().appendingPathComponent(fileName)
-                try storageManager.moveFile(from: tempFileURL, to: destinationURL)
+                try storageManager.moveFile(from: downloadedURL, to: destinationURL)
 
-                // 清理临时目录
+                // 清理临时目录和 resumeData
                 try? storageManager.deleteFile(at: tempDirectory)
+                self.resumeData = nil
+                self.downloadHandle = nil
 
                 self.completedURL = destinationURL
                 state.send(.completed)
 
             } catch is CancellationError {
+                // Task 被取消（来自 cancel() 调用）
                 state.send(.cancelled)
             } catch {
                 Logger.error("MP4 download failed: \(error)")
@@ -141,12 +152,22 @@ class MP4DownloadTask: DownloadTask {
     }
 
     func pause() async {
+        // 通过句柄调用 cancel(byProducingResumeData:) 获取 resumeData
+        if let handle = downloadHandle {
+            let data = await handle.cancelWithResumeData()
+            resumeData = data
+            Logger.info("MP4 download paused, resumeData saved (\(data?.count ?? 0) bytes)")
+        }
         task?.cancel()
         speedCalculator.reset()
+        downloadHandle = nil
         state.send(.paused)
     }
 
     func cancel() async {
+        // 取消时清除 resumeData（不保留恢复能力）
+        resumeData = nil
+        downloadHandle = nil
         task?.cancel()
         speedCalculator.reset()
 
