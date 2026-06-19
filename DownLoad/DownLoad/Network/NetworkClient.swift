@@ -66,6 +66,7 @@ actor NetworkClient {
 
     private let session: URLSession
     private let retryCount: Int
+    private let customHeaders: [String: String]
 
     init(configuration: DownloadConfiguration = .default) {
         let sessionConfiguration = URLSessionConfiguration.default
@@ -75,6 +76,16 @@ actor NetworkClient {
 
         self.session = URLSession(configuration: sessionConfiguration)
         self.retryCount = configuration.retryCount
+        self.customHeaders = configuration.customHeaders
+    }
+
+    /// 创建带有自定义请求头的 URLRequest
+    private func makeRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        for (key, value) in customHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        return request
     }
 
     /// 下载字符串内容
@@ -83,7 +94,8 @@ actor NetworkClient {
 
         for attempt in 0..<retryCount {
             do {
-                let (data, response) = try await session.data(from: url)
+                let request = makeRequest(for: url)
+                let (data, response) = try await session.data(for: request)
 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw NetworkError.invalidResponse
@@ -118,7 +130,8 @@ actor NetworkClient {
 
         for attempt in 0..<retryCount {
             do {
-                let (data, response) = try await session.data(from: url)
+                let request = makeRequest(for: url)
+                let (data, response) = try await session.data(for: request)
 
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw NetworkError.invalidResponse
@@ -174,7 +187,8 @@ actor NetworkClient {
                 }
             }
 
-            let task = downloadSession.downloadTask(with: url)
+            let request = makeRequest(for: url)
+            let task = downloadSession.downloadTask(with: request)
             task.resume()
         }
     }
@@ -226,7 +240,8 @@ actor NetworkClient {
             if let resumeData = resumeData {
                 downloadTask = downloadSession.downloadTask(withResumeData: resumeData)
             } else {
-                downloadTask = downloadSession.downloadTask(with: url)
+                let request = makeRequest(for: url)
+                downloadTask = downloadSession.downloadTask(with: request)
             }
             downloadTask.resume()
         }
@@ -247,7 +262,8 @@ actor NetworkClient {
             if let resumeData = resumeData {
                 downloadTask = downloadSession.downloadTask(withResumeData: resumeData)
             } else {
-                downloadTask = downloadSession.downloadTask(with: url)
+                let request = makeRequest(for: url)
+                downloadTask = downloadSession.downloadTask(with: request)
             }
 
             let handle = ResumableDownloadHandle(urlSessionTask: downloadTask)

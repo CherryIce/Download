@@ -17,30 +17,10 @@ class VideoDownloadEngine {
     private let storageManager: FileStorageManager
     private let networkClient: NetworkClient
 
-    private var mp4Handler: MP4DownloadHandler!
-    private var m3u8Handler: M3U8DownloadHandler!
-    private var thunderHandler: ThunderDownloadHandler!
-
     private init() {
         self.queueManager = DownloadQueueManager()
         self.storageManager = FileStorageManager()
         self.networkClient = NetworkClient()
-
-        // 初始化处理器
-        self.mp4Handler = MP4DownloadHandler(
-            networkClient: networkClient,
-            storageManager: storageManager
-        )
-
-        self.m3u8Handler = M3U8DownloadHandler(
-            networkClient: networkClient,
-            storageManager: storageManager
-        )
-
-        self.thunderHandler = ThunderDownloadHandler(
-            networkClient: networkClient,
-            storageManager: storageManager
-        )
     }
 
     /// 创建下载任务
@@ -56,11 +36,19 @@ class VideoDownloadEngine {
         Logger.info("Creating download task for URL: \(url), format: \(format)")
         print("🔥 VideoDownloadEngine: 创建下载任务，URL: \(url), 格式: \(format)")
 
-        // 2. 创建对应的Handler
-        let handler = try createHandler(for: format)
+        // 2. 如果有自定义请求头，为该任务创建独立的 NetworkClient
+        let client: NetworkClient
+        if !configuration.customHeaders.isEmpty {
+            client = NetworkClient(configuration: configuration)
+        } else {
+            client = networkClient
+        }
+
+        // 3. 创建对应的Handler
+        let handler = createHandler(for: format, networkClient: client)
         print("✅ Handler创建成功: \(type(of: handler))")
 
-        // 3. 创建下载任务
+        // 4. 创建下载任务
         let task = try await handler.createTask(
             url: url,
             fileName: fileName,
@@ -68,7 +56,7 @@ class VideoDownloadEngine {
         )
         print("✅ 下载任务创建成功: \(task.fileName ?? "未知文件名")")
 
-        // 4. 添加到队列
+        // 5. 添加到队列
         await queueManager.addTask(task)
         print("✅ 任务已添加到队列")
 
@@ -228,14 +216,14 @@ class VideoDownloadEngine {
     }
 
     /// 创建对应的Handler
-    private func createHandler(for format: VideoFormat) throws -> any DownloadHandlerProtocol {
+    private func createHandler(for format: VideoFormat, networkClient: NetworkClient) -> any DownloadHandlerProtocol {
         switch format {
         case .mp4:
-            return mp4Handler
+            return MP4DownloadHandler(networkClient: networkClient, storageManager: storageManager)
         case .m3u8:
-            return m3u8Handler
+            return M3U8DownloadHandler(networkClient: networkClient, storageManager: storageManager)
         case .thunder:
-            return thunderHandler
+            return ThunderDownloadHandler(networkClient: networkClient, storageManager: storageManager)
         }
     }
 }
