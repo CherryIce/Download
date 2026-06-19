@@ -86,6 +86,15 @@ class MP4DownloadTask: DownloadTask {
         return configuration.enableBackgroundDownload
     }
 
+    /// 任务终止原因，用于区分暂停、取消和真正的失败
+    private enum TaskTerminationReason {
+        case none
+        case pauseRequested
+        case cancelRequested
+    }
+
+    private var terminationReason: TaskTerminationReason = .none
+
     /// 标记下载完成（供外部如恢复场景使用）
     func markCompleted(url: URL) {
         self.completedURL = url
@@ -179,7 +188,16 @@ class MP4DownloadTask: DownloadTask {
 
             } catch is CancellationError {
                 // Task 被取消（来自 cancel() 调用）
-                state.send(.cancelled)
+                if self.terminationReason != .pauseRequested {
+                    state.send(.cancelled)
+                }
+                // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
+            } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
+                // URLSession 任务被取消（来自 pause() 的 cancelWithResumeData）
+                if self.terminationReason != .pauseRequested {
+                    state.send(.cancelled)
+                }
+                // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
             } catch {
                 Logger.error("MP4 download failed: \(error)")
                 state.send(.failed)
@@ -338,7 +356,16 @@ class MP4DownloadTask: DownloadTask {
 
             } catch is CancellationError {
                 // Task 被取消（来自 cancel() 调用）
-                state.send(.cancelled)
+                if self.terminationReason != .pauseRequested {
+                    state.send(.cancelled)
+                }
+                // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
+            } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
+                // URLSession 后台任务被取消
+                if self.terminationReason != .pauseRequested {
+                    state.send(.cancelled)
+                }
+                // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
             } catch {
                 Logger.error("MP4 background download failed: \(error)")
                 state.send(.failed)
@@ -350,6 +377,9 @@ class MP4DownloadTask: DownloadTask {
     }
 
     func pause() async {
+        terminationReason = .pauseRequested
+        defer { terminationReason = .none }
+
         if useBackgroundDownload {
             // 后台模式：通过 BackgroundDownloadSession 取消并获取 resumeData
             if let bgTask = backgroundDownloadTask {
@@ -377,6 +407,9 @@ class MP4DownloadTask: DownloadTask {
     }
 
     func cancel() async {
+        terminationReason = .cancelRequested
+        defer { terminationReason = .none }
+
         // 取消时清除 resumeData（不保留恢复能力）
         resumeData = nil
 
