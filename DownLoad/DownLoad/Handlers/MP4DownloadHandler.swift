@@ -61,6 +61,7 @@ class MP4DownloadTask: DownloadTask {
 
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
+    private let speedCalculator = SpeedCalculator()
     private var task: Task<Void, Error>?
 
     init(
@@ -100,13 +101,18 @@ class MP4DownloadTask: DownloadTask {
                 ) { [weak self] downloaded, total in
                     guard let self = self else { return }
 
+                    let now = Date().timeIntervalSince1970
+                    self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
+                    let speed = self.speedCalculator.calculateSpeed()
+                    let remaining = self.speedCalculator.calculateRemainingTime(totalBytes: total, downloadedBytes: downloaded)
+
                     let progressInfo = DownloadProgress(
                         taskId: self.id,
                         totalBytes: total,
                         downloadedBytes: downloaded,
                         progress: total > 0 ? Float(downloaded) / Float(total) : 0,
-                        speed: 0,
-                        remainingTime: nil
+                        speed: speed,
+                        remainingTime: remaining
                     )
 
                     self.progress.send(progressInfo)
@@ -136,11 +142,13 @@ class MP4DownloadTask: DownloadTask {
 
     func pause() async {
         task?.cancel()
+        speedCalculator.reset()
         state.send(.paused)
     }
 
     func cancel() async {
         task?.cancel()
+        speedCalculator.reset()
 
         // 清理临时文件
         let tempDirectory = storageManager.createTaskDirectory(taskId: id)

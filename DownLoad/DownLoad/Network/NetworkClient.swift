@@ -7,6 +7,35 @@
 
 import Foundation
 
+// MARK: - Download Delegate（内部辅助类，用于接收 URLSession 下载进度回调）
+
+private class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
+    let progressHandler: (Int64, Int64) -> Void
+    var completionHandler: ((Result<URL, Error>) -> Void)?
+    var resumeDataHandler: ((Data?) -> Void)?
+
+    init(progress: @escaping (Int64, Int64) -> Void) {
+        self.progressHandler = progress
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        progressHandler(totalBytesWritten, totalBytesExpectedToWrite)
+    }
+
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        completionHandler?(.success(location))
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            // 提取 resumeData（如果有的话）
+            let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            resumeDataHandler?(resumeData)
+            completionHandler?(.failure(error))
+        }
+    }
+}
+
 /// 网络客户端
 actor NetworkClient {
 
@@ -89,49 +118,43 @@ actor NetworkClient {
         throw lastError ?? NetworkError.connectionError(NSError(domain: "NetworkClient", code: -1))
     }
 
-    /// 下载文件（带进度回调）
+    /// 下载文件（带实时进度回调）
     func downloadFile(
         from url: URL,
         to destinationURL: URL,
         progress: @escaping (Int64, Int64) -> Void
     ) async throws -> URL {
         return try await withCheckedThrowingContinuation { continuation in
-            let task = session.downloadTask(with: url) { tempURL, response, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    continuation.resume(throwing: NetworkError.invalidResponse)
-                    return
-                }
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    continuation.resume(throwing: NetworkError.httpError(statusCode: httpResponse.statusCode))
-                    return
-                }
-                guard let tempURL = tempURL else {
-                    continuation.resume(throwing: NetworkError.noData)
-                    return
-                }
-                do {
-                    let dir = destinationURL.deletingLastPathComponent()
-                    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                    if FileManager.default.fileExists(atPath: destinationURL.path) {
-                        try FileManager.default.removeItem(at: destinationURL)
+            let delegate = DownloadDelegate(progress: progress)
+            let downloadSession = URLSession(configuration: session.configuration, delegate: delegate, delegateQueue: nil)
+
+            delegate.completionHandler = { result in
+                switch result {
+                case .success(let tempURL):
+                    do {
+                        let dir = destinationURL.deletingLastPathComponent()
+                        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                        if FileManager.default.fileExists(atPath: destinationURL.path) {
+                            try FileManager.default.removeItem(at: destinationURL)
+                        }
+                        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                        let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
+                        progress(size, size)
+                        continuation.resume(returning: destinationURL)
+                    } catch {
+                        continuation.resume(throwing: error)
                     }
-                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-                    let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
-                    progress(size, size)
-                    continuation.resume(returning: destinationURL)
-                } catch {
+                case .failure(let error):
                     continuation.resume(throwing: error)
                 }
             }
+
+            let task = downloadSession.downloadTask(with: url)
             task.resume()
         }
     }
 
-    /// 下载文件（支持断点续传）
+    /// 下载文件（支持断点续传，带实时进度回调）
     func downloadFileWithResume(
         from url: URL,
         to destinationURL: URL,
@@ -139,36 +162,41 @@ actor NetworkClient {
         progress: @escaping (Int64, Int64) -> Void
     ) async throws -> (URL, Data?) {
         return try await withCheckedThrowingContinuation { continuation in
-            let downloadTask = session.downloadTask(with: url) { tempURL, response, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    continuation.resume(throwing: NetworkError.invalidResponse)
-                    return
-                }
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    continuation.resume(throwing: NetworkError.httpError(statusCode: httpResponse.statusCode))
-                    return
-                }
-                guard let tempURL = tempURL else {
-                    continuation.resume(throwing: NetworkError.noData)
-                    return
-                }
-                do {
-                    let dir = destinationURL.deletingLastPathComponent()
-                    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                    if FileManager.default.fileExists(atPath: destinationURL.path) {
-                        try FileManager.default.removeItem(at: destinationURL)
+            let delegate = DownloadDelegate(progress: progress)
+            let downloadSession = URLSession(configuration: session.configuration, delegate: delegate, delegateQueue: nil)
+
+            var savedResumeData: Data?
+
+            delegate.resumeDataHandler = { data in
+                savedResumeData = data
+            }
+
+            delegate.completionHandler = { result in
+                switch result {
+                case .success(let tempURL):
+                    do {
+                        let dir = destinationURL.deletingLastPathComponent()
+                        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                        if FileManager.default.fileExists(atPath: destinationURL.path) {
+                            try FileManager.default.removeItem(at: destinationURL)
+                        }
+                        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                        let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
+                        progress(size, size)
+                        continuation.resume(returning: (destinationURL, savedResumeData))
+                    } catch {
+                        continuation.resume(throwing: error)
                     }
-                    try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-                    let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
-                    progress(size, size)
-                    continuation.resume(returning: (destinationURL, nil))
-                } catch {
+                case .failure(let error):
                     continuation.resume(throwing: error)
                 }
+            }
+
+            let downloadTask: URLSessionDownloadTask
+            if let resumeData = resumeData {
+                downloadTask = downloadSession.downloadTask(withResumeData: resumeData)
+            } else {
+                downloadTask = downloadSession.downloadTask(with: url)
             }
             downloadTask.resume()
         }

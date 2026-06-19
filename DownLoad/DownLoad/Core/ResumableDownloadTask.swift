@@ -13,6 +13,7 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
 
     private var urlSessionTask: URLSessionDownloadTask?
     private var urlSession: URLSession!
+    private let speedCalculator = SpeedCalculator()
 
     init(url: String, fileName: String, configuration: DownloadConfiguration) {
         self.url = url
@@ -62,13 +63,18 @@ final class ResumableDownloadTask: NSObject, DownloadTask {
 
 extension ResumableDownloadTask: URLSessionDownloadDelegate {
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        let now = Date().timeIntervalSince1970
+        speedCalculator.addSample(bytes: totalBytesWritten, timestamp: now)
+        let speed = speedCalculator.calculateSpeed()
+        let remaining = speedCalculator.calculateRemainingTime(totalBytes: totalBytesExpectedToWrite, downloadedBytes: totalBytesWritten)
+
         progress.send(DownloadProgress(
             taskId: id,
             totalBytes: totalBytesExpectedToWrite,
             downloadedBytes: totalBytesWritten,
             progress: totalBytesExpectedToWrite > 0 ? Float(totalBytesWritten)/Float(totalBytesExpectedToWrite) : 0,
-            speed: 0,
-            remainingTime: nil
+            speed: speed,
+            remainingTime: remaining
         ))
     }
 

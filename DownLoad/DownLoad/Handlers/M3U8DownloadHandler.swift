@@ -90,6 +90,7 @@ class M3U8DownloadTask: DownloadTask {
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
     private var downloadState: M3U8DownloadState
+    private let speedCalculator = SpeedCalculator()
     private var task: Task<Void, Error>?
 
     init(
@@ -216,13 +217,18 @@ class M3U8DownloadTask: DownloadTask {
         let total = downloadState.totalSegments
         let progressValue = Float(completed) / Float(total)
 
+        let now = Date().timeIntervalSince1970
+        speedCalculator.addSample(bytes: Int64(completed), timestamp: now)
+        let speed = speedCalculator.calculateSpeed()
+        let remaining = speedCalculator.calculateRemainingTime(totalBytes: Int64(total), downloadedBytes: Int64(completed))
+
         let progressInfo = DownloadProgress(
             taskId: id,
             totalBytes: Int64(total),
             downloadedBytes: Int64(completed),
             progress: progressValue,
-            speed: 0,
-            remainingTime: nil
+            speed: speed,
+            remainingTime: remaining
         )
 
         progress.send(progressInfo)
