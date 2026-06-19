@@ -18,6 +18,9 @@ enum DownloadError: Error, LocalizedError {
     case encryptionNotSupported
     case invalidM3U8Format
     case thunderProtocolError
+    case liveStreamNotSupported
+    case keyFormatNotSupported(format: String)
+    case byteRangeRequestFailed(url: String)
 
     var errorDescription: String? {
         switch self {
@@ -41,6 +44,12 @@ enum DownloadError: Error, LocalizedError {
             return "Invalid M3U8 format"
         case .thunderProtocolError:
             return "Invalid thunder protocol format"
+        case .liveStreamNotSupported:
+            return "Live HLS streams are not currently supported for download"
+        case .keyFormatNotSupported(let format):
+            return "Key format '\(format)' is not supported"
+        case .byteRangeRequestFailed(let url):
+            return "Byte range request failed for URL: \(url)"
         }
     }
 }

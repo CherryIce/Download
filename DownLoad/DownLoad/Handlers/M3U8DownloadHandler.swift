@@ -46,10 +46,22 @@ class M3U8DownloadHandler: DownloadHandlerProtocol {
             mediaPlaylist = playlist as! M3U8MediaPlaylist
         }
 
-        // 如果加密，下载密钥
-        var encryptionKey: Data?
-        if mediaPlaylist.isEncrypted, let encryption = mediaPlaylist.segments.first?.encryption {
-            encryptionKey = try await networkClient.downloadData(from: encryption.keyURL)
+        // 问题19：检测直播流，抛出明确错误
+        if mediaPlaylist.isLive {
+            throw DownloadError.liveStreamNotSupported
+        }
+
+        // 问题17：收集所有唯一密钥 URL，支持密钥轮换
+        var encryptionKeyCache: [URL: Data] = [:]
+        let uniqueKeyURLs = Set(mediaPlaylist.segments.compactMap { $0.encryption?.keyURL })
+        for keyURL in uniqueKeyURLs {
+            // 检查 FairPlay DRM 等不支持的密钥格式
+            if let segment = mediaPlaylist.segments.first(where: { $0.encryption?.keyURL == keyURL }),
+               let keyFormat = segment.encryption?.keyFormat,
+               keyFormat == "com.apple.streamingkeydelivery" {
+                throw DownloadError.keyFormatNotSupported(format: keyFormat)
+            }
+            encryptionKeyCache[keyURL] = try await networkClient.downloadData(from: keyURL)
         }
 
         // 检查存储空间
@@ -63,7 +75,7 @@ class M3U8DownloadHandler: DownloadHandlerProtocol {
             id: taskId,
             url: url,
             playlist: mediaPlaylist,
-            encryptionKey: encryptionKey,
+            encryptionKeyCache: encryptionKeyCache,
             fileName: finalFileName,
             configuration: configuration,
             networkClient: networkClient,
@@ -82,7 +94,7 @@ class M3U8DownloadTask: DownloadTask {
     let fileName: String
     let configuration: DownloadConfiguration
     let playlist: M3U8MediaPlaylist
-    let encryptionKey: Data?
+    private let encryptionKeyCache: [URL: Data]  // 密钥缓存（支持密钥轮换）
 
     let state = CurrentValueSubject<DownloadState, Never>(.pending)
     let progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
@@ -106,7 +118,7 @@ class M3U8DownloadTask: DownloadTask {
         id: UUID,
         url: String,
         playlist: M3U8MediaPlaylist,
-        encryptionKey: Data?,
+        encryptionKeyCache: [URL: Data],
         fileName: String,
         configuration: DownloadConfiguration,
         networkClient: NetworkClient,
@@ -115,7 +127,7 @@ class M3U8DownloadTask: DownloadTask {
         self.id = id
         self.url = url
         self.playlist = playlist
-        self.encryptionKey = encryptionKey
+        self.encryptionKeyCache = encryptionKeyCache
         self.fileName = fileName
         self.configuration = configuration
         self.networkClient = networkClient
@@ -125,6 +137,7 @@ class M3U8DownloadTask: DownloadTask {
             segmentURLs: playlist.segments.map { $0.url.absoluteString },
             playlistIdentifier: playlist.segments.first?.url.absoluteString ?? url
         )
+        self.downloadState.isFMP4 = playlist.isFMP4
         self.maxConcurrentSegments = Constants.M3U8.maxConcurrentSegmentDownloads
     }
 
@@ -176,7 +189,18 @@ class M3U8DownloadTask: DownloadTask {
                 // 预扫描已存在的片段，校准字节大小和 completedSegments
                 await calibrateDownloadedBytes(segmentsDir: segmentsDir)
 
-                // 并发下载TS片段（使用信号量限制并发数，防止OOM）
+                // 问题18：fMP4 容器需要先下载初始化片段
+                if let mapInfo = playlist.map {
+                    let initSegmentURL = segmentsDir.appendingPathComponent("init_segment.mp4")
+                    if !FileManager.default.fileExists(atPath: initSegmentURL.path) {
+                        let initData = try await downloadMapSegment(mapInfo)
+                        try initData.write(to: initSegmentURL)
+                    }
+                    downloadState.initSegmentDownloaded = true
+                    saveDownloadState()
+                }
+
+                // 并发下载片段（使用信号量限制并发数，防止OOM）
                 let semaphore = AsyncSemaphore(limit: maxConcurrentSegments)
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     for (index, segment) in playlist.segments.enumerated() {
@@ -204,7 +228,7 @@ class M3U8DownloadTask: DownloadTask {
                     try await group.waitForAll()
                 }
 
-                // 合并TS片段
+                // 合并片段
                 let outputURL = try await mergeSegments(
                     in: segmentsDir,
                     to: storageManager.completedDirectory().appendingPathComponent(fileName)
@@ -249,27 +273,75 @@ class M3U8DownloadTask: DownloadTask {
 
     // MARK: - Private Methods
 
-    @discardableResult
-    private func downloadSegment(_ segment: M3U8Segment, index: Int, to directory: URL) async throws -> Int64 {
-        // 下载数据
-        var data = try await networkClient.downloadData(from: segment.url)
+    /// 下载初始化片段（fMP4 #EXT-X-MAP）
+    private func downloadMapSegment(_ mapInfo: M3U8MapInfo) async throws -> Data {
+        if let byteRange = mapInfo.byteRange {
+            return try await downloadByteRange(from: mapInfo.uri, byteRange: byteRange)
+        } else {
+            return try await networkClient.downloadData(from: mapInfo.uri)
+        }
+    }
 
-        // 解密（如果需要）
-        if let encryption = segment.encryption, let key = encryptionKey {
-            data = try decryptData(data, key: key, iv: encryption.iv)
+    /// 使用 HTTP Range header 下载字节范围
+    private func downloadByteRange(from url: URL, byteRange: M3U8ByteRange) async throws -> Data {
+        let offset = byteRange.offset ?? 0
+        let end = offset + byteRange.length - 1
+        let rangeHeader = "bytes=\(offset)-\(end)"
+
+        var request = URLRequest(url: url)
+        request.setValue(rangeHeader, forHTTPHeaderField: "Range")
+        request.timeoutInterval = Constants.Network.timeoutInterval
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        // 验证服务器返回了 206 Partial Content
+        if let httpResponse = response as? HTTPURLResponse,
+           httpResponse.statusCode != 206 && httpResponse.statusCode != 200 {
+            throw DownloadError.byteRangeRequestFailed(url: url.absoluteString)
         }
 
-        // 保存片段
-        let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", index)).ts")
+        return data
+    }
+
+    @discardableResult
+    private func downloadSegment(_ segment: M3U8Segment, index: Int, to directory: URL) async throws -> Int64 {
+        var data: Data
+
+        // 问题18：支持字节范围下载
+        if let byteRange = segment.byteRange {
+            data = try await downloadByteRange(from: segment.url, byteRange: byteRange)
+        } else {
+            data = try await networkClient.downloadData(from: segment.url)
+        }
+
+        // 问题17：使用每片段对应的密钥解密，支持密钥轮换和 SAMPLE-AES
+        if let encryption = segment.encryption,
+           let key = encryptionKeyCache[encryption.keyURL] {
+            data = try decryptData(data, key: key, iv: encryption.iv, method: encryption.method)
+        }
+
+        // 问题18：根据容器类型选择文件扩展名
+        let fileExtension = playlist.isFMP4 ? "m4s" : "ts"
+        let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", index)).\(fileExtension)")
         try data.write(to: segmentURL)
 
         return Int64(data.count)
     }
 
-    private func decryptData(_ data: Data, key: Data, iv: Data?) throws -> Data {
-        // 使用AES-128-CBC解密
-        let cryptor = AESDecryptor(key: key, iv: iv ?? Data(repeating: 0, count: 16))
-        return try cryptor.decrypt(data)
+    /// 解密数据，支持 AES-128-CBC 和 SAMPLE-AES (AES-128-CTR)
+    private func decryptData(_ data: Data, key: Data, iv: Data?, method: M3U8EncryptionMethod) throws -> Data {
+        switch method {
+        case .aes128:
+            // AES-128-CBC + PKCS7 填充
+            let cryptor = AESDecryptor(key: key, iv: iv ?? Data(repeating: 0, count: 16))
+            return try cryptor.decrypt(data)
+        case .sampleAES:
+            // AES-128-CTR，无填充
+            let ivData = iv ?? Data(repeating: 0, count: 16)
+            return try AESCTRDecryptor(key: key, iv: ivData).decrypt(data)
+        case .none:
+            return data
+        }
     }
 
     private func recordSegmentSize(index: Int, size: Int64) {
@@ -284,8 +356,11 @@ class M3U8DownloadTask: DownloadTask {
     }
 
     private func calibrateDownloadedBytes(segmentsDir: URL) async {
+        // 问题18：根据容器类型使用对应扩展名
+        let fileExtension = playlist.isFMP4 ? "m4s" : "ts"
+
         for i in 0..<playlist.segments.count {
-            let segmentURL = segmentsDir.appendingPathComponent("segment_\(String(format: "%05d", i)).ts")
+            let segmentURL = segmentsDir.appendingPathComponent("segment_\(String(format: "%05d", i)).\(fileExtension)")
             if FileManager.default.fileExists(atPath: segmentURL.path) {
                 let size = storageManager.fileSize(at: segmentURL)
                 if size > 0 {
@@ -330,6 +405,7 @@ class M3U8DownloadTask: DownloadTask {
         progress.send(progressInfo)
     }
 
+    /// 合并片段，支持 TS 和 fMP4 容器
     private func mergeSegments(in directory: URL, to outputURL: URL) async throws -> URL {
         // 创建输出文件
         FileManager.default.createFile(atPath: outputURL.path, contents: nil, attributes: nil)
@@ -343,27 +419,45 @@ class M3U8DownloadTask: DownloadTask {
 
         let bufferSize = Constants.M3U8.mergeBufferSize
 
-        // 按顺序流式读取并合并所有TS片段，避免将整个片段加载到内存
-        for i in 0..<playlist.segments.count {
-            let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", i)).ts")
+        if playlist.isFMP4 {
+            // fMP4 合并：先写初始化片段，再写所有媒体片段
+            let initSegmentURL = directory.appendingPathComponent("init_segment.mp4")
+            if FileManager.default.fileExists(atPath: initSegmentURL.path) {
+                try appendFile(initSegmentURL, to: outputHandle, bufferSize: bufferSize)
+            }
 
-            guard FileManager.default.fileExists(atPath: segmentURL.path) else { continue }
-            guard let inputStream = InputStream(fileAtPath: segmentURL.path) else { continue }
-            inputStream.open()
-            defer { inputStream.close() }
-
-            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-            defer { buffer.deallocate() }
-
-            while inputStream.hasBytesAvailable {
-                let bytesRead = inputStream.read(buffer, maxLength: bufferSize)
-                if bytesRead <= 0 { break }
-                let chunk = Data(bytesNoCopy: buffer, count: bytesRead, deallocator: .none)
-                outputHandle.write(chunk)
+            for i in 0..<playlist.segments.count {
+                let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", i)).m4s")
+                guard FileManager.default.fileExists(atPath: segmentURL.path) else { continue }
+                try appendFile(segmentURL, to: outputHandle, bufferSize: bufferSize)
+            }
+        } else {
+            // TS 合并：保持现有逻辑（向后兼容）
+            for i in 0..<playlist.segments.count {
+                let segmentURL = directory.appendingPathComponent("segment_\(String(format: "%05d", i)).ts")
+                guard FileManager.default.fileExists(atPath: segmentURL.path) else { continue }
+                try appendFile(segmentURL, to: outputHandle, bufferSize: bufferSize)
             }
         }
 
         return outputURL
+    }
+
+    /// 流式追加文件内容到输出句柄
+    private func appendFile(_ fileURL: URL, to outputHandle: FileHandle, bufferSize: Int) throws {
+        guard let inputStream = InputStream(fileAtPath: fileURL.path) else { return }
+        inputStream.open()
+        defer { inputStream.close() }
+
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while inputStream.hasBytesAvailable {
+            let bytesRead = inputStream.read(buffer, maxLength: bufferSize)
+            if bytesRead <= 0 { break }
+            let chunk = Data(bytesNoCopy: buffer, count: bytesRead, deallocator: .none)
+            outputHandle.write(chunk)
+        }
     }
 }
 
@@ -384,7 +478,7 @@ extension M3U8DownloadTask {
     }
 }
 
-// MARK: - AES Decryptor
+// MARK: - AES Decryptor (CBC)
 
 class AESDecryptor {
     private let key: Data
@@ -408,6 +502,54 @@ class AESDecryptor {
                             CCOperation(kCCDecrypt),
                             CCAlgorithm(kCCAlgorithmAES),
                             CCOptions(kCCOptionPKCS7Padding),
+                            keyBytes.baseAddress,
+                            key.count,
+                            ivBytes.baseAddress,
+                            dataBytes.baseAddress,
+                            data.count,
+                            decryptedBytes.baseAddress,
+                            outputSize,
+                            &numBytesDecrypted
+                        )
+                    }
+                }
+            }
+        }
+
+        guard cryptStatus == kCCSuccess else {
+            throw DownloadError.encryptionNotSupported
+        }
+
+        decryptedData.count = numBytesDecrypted
+        return decryptedData
+    }
+}
+
+// MARK: - AES CTR Decryptor (SAMPLE-AES)
+
+/// AES-128-CTR 解密器，用于 SAMPLE-AES 加密的 HLS 流
+class AESCTRDecryptor {
+    private let key: Data
+    private let iv: Data
+
+    init(key: Data, iv: Data) {
+        self.key = key
+        self.iv = iv
+    }
+
+    func decrypt(_ data: Data) throws -> Data {
+        let outputSize = data.count
+        var decryptedData = Data(count: outputSize)
+        var numBytesDecrypted: size_t = 0
+
+        let cryptStatus: CCCryptorStatus = key.withUnsafeBytes { keyBytes in
+            iv.withUnsafeBytes { ivBytes in
+                data.withUnsafeBytes { dataBytes in
+                    decryptedData.withUnsafeMutableBytes { decryptedBytes in
+                        CCCrypt(
+                            CCOperation(kCCDecrypt),
+                            CCAlgorithm(kCCAlgorithmAES),
+                            CCOptions(kCCModeOptionCTR_BE),  // CTR 模式，无填充
                             keyBytes.baseAddress,
                             key.count,
                             ivBytes.baseAddress,

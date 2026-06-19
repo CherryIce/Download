@@ -319,17 +319,24 @@ class VideoDownloadEngine {
                             mediaPlaylist = playlist as! M3U8MediaPlaylist
                         }
 
-                        // 恢复加密密钥
-                        var encryptionKey: Data?
-                        if mediaPlaylist.isEncrypted, let encryption = mediaPlaylist.segments.first?.encryption {
-                            encryptionKey = try await networkClient.downloadData(from: encryption.keyURL)
+                        // 跳过直播流恢复
+                        if mediaPlaylist.isLive {
+                            Logger.warning("Skipping live stream restoration: \(item.id)")
+                            continue
+                        }
+
+                        // 恢复所有加密密钥（支持密钥轮换）
+                        var encryptionKeyCache: [URL: Data] = [:]
+                        let uniqueKeyURLs = Set(mediaPlaylist.segments.compactMap { $0.encryption?.keyURL })
+                        for keyURL in uniqueKeyURLs {
+                            encryptionKeyCache[keyURL] = try await networkClient.downloadData(from: keyURL)
                         }
 
                         let m3u8Task = M3U8DownloadTask(
                             id: item.id,
                             url: item.url,
                             playlist: mediaPlaylist,
-                            encryptionKey: encryptionKey,
+                            encryptionKeyCache: encryptionKeyCache,
                             fileName: item.fileName,
                             configuration: .default,
                             networkClient: networkClient,

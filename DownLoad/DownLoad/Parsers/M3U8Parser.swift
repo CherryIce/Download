@@ -79,6 +79,11 @@ class M3U8Parser {
         var encryptionInfo: M3U8Encryption?
         var targetDuration: Double = 0
         var version: Int?
+        var hasEndList = false
+        var mediaSequence: Int?
+        var currentMap: M3U8MapInfo?
+        var pendingByteRange: M3U8ByteRange?
+        var lastByteRangeEnd: Int = 0
 
         for i in 0..<lines.count {
             let line = lines[i]
@@ -91,6 +96,27 @@ class M3U8Parser {
             // 解析目标时长
             if line.hasPrefix("#EXT-X-TARGETDURATION:") {
                 targetDuration = Double(line.replacingOccurrences(of: "#EXT-X-TARGETDURATION:", with: "")) ?? 0
+            }
+
+            // 解析媒体序列号
+            if line.hasPrefix("#EXT-X-MEDIA-SEQUENCE:") {
+                mediaSequence = Int(line.replacingOccurrences(of: "#EXT-X-MEDIA-SEQUENCE:", with: ""))
+            }
+
+            // 检测 ENDLIST（VOD 标志）
+            if line == "#EXT-X-ENDLIST" {
+                hasEndList = true
+            }
+
+            // 解析初始化片段信息（fMP4 容器）
+            if line.hasPrefix("#EXT-X-MAP:") {
+                currentMap = try parseMapInfo(line: line, baseURL: baseURL)
+            }
+
+            // 解析字节范围（暂存，在下一个 URL 行时赋给片段）
+            if line.hasPrefix("#EXT-X-BYTERANGE:") {
+                let rangeString = line.replacingOccurrences(of: "#EXT-X-BYTERANGE:", with: "")
+                pendingByteRange = parseByteRange(rangeString, lastEnd: lastByteRangeEnd)
             }
 
             // 解析加密信息
@@ -109,11 +135,22 @@ class M3U8Parser {
                 guard let url = resolveURL(line, baseURL: baseURL) else {
                     continue
                 }
+
+                // 更新字节范围结束位置
+                if let byteRange = pendingByteRange {
+                    lastByteRangeEnd = byteRange.offset ?? lastByteRangeEnd + byteRange.length
+                }
+
                 segments.append(M3U8Segment(
                     url: url,
                     duration: duration,
-                    encryption: encryptionInfo
+                    encryption: encryptionInfo,
+                    byteRange: pendingByteRange,
+                    map: currentMap
                 ))
+
+                // 重置暂存的字节范围（已赋给当前片段）
+                pendingByteRange = nil
             }
         }
 
@@ -122,18 +159,23 @@ class M3U8Parser {
         }
 
         let isEncrypted = segments.contains { $0.encryption != nil }
+        let isFMP4 = currentMap != nil
 
         return M3U8MediaPlaylist(
             segments: segments,
             targetDuration: targetDuration,
             isEncrypted: isEncrypted,
-            version: version
+            version: version,
+            isLive: !hasEndList,
+            mediaSequence: mediaSequence,
+            map: currentMap,
+            isFMP4: isFMP4
         )
     }
 
     /// 解析加密信息
     private func parseEncryptionInfo(line: String, baseURL: URL) throws -> M3U8Encryption? {
-        // 示例: #EXT-X-KEY:METHOD=AES-128,URI="key.key",IV=0x...
+        // 示例: #EXT-X-KEY:METHOD=AES-128,URI="key.key",IV=0x...,KEYFORMAT="identity"
 
         guard line.contains("METHOD=") else {
             return nil
@@ -147,6 +189,11 @@ class M3U8Parser {
             method = .sampleAES
         } else {
             method = .none
+        }
+
+        // METHOD=NONE 表示无加密
+        if method == .none {
+            return nil
         }
 
         // 提取密钥URI
@@ -168,7 +215,38 @@ class M3U8Parser {
             iv = Data(hex: hex)
         }
 
-        return M3U8Encryption(method: method, keyURL: keyURL, iv: iv)
+        // 提取密钥格式
+        let keyFormat = extractValue(line: line, key: "KEYFORMAT")
+
+        return M3U8Encryption(method: method, keyURL: keyURL, iv: iv, keyFormat: keyFormat)
+    }
+
+    /// 解析初始化片段信息（#EXT-X-MAP）
+    private func parseMapInfo(line: String, baseURL: URL) throws -> M3U8MapInfo {
+        // 格式: #EXT-X-MAP:URI="init.mp4",BYTERANGE="1000@2000"
+        guard let uriString = extractValue(line: line, key: "URI") else {
+            throw DownloadError.invalidM3U8Format
+        }
+
+        guard let uri = resolveURL(uriString, baseURL: baseURL) else {
+            throw DownloadError.invalidM3U8Format
+        }
+
+        var byteRange: M3U8ByteRange? = nil
+        if let rangeString = extractValue(line: line, key: "BYTERANGE") {
+            byteRange = parseByteRange(rangeString, lastEnd: 0)
+        }
+
+        return M3U8MapInfo(uri: uri, byteRange: byteRange)
+    }
+
+    /// 解析字节范围字符串
+    /// 格式: "length@offset" 或 "length"（无 offset 时使用 lastEnd）
+    private func parseByteRange(_ rangeString: String, lastEnd: Int) -> M3U8ByteRange {
+        let parts = rangeString.components(separatedBy: "@")
+        let length = Int(parts[0]) ?? 0
+        let offset = parts.count > 1 ? Int(parts[1]) : lastEnd
+        return M3U8ByteRange(length: length, offset: offset)
     }
 
     /// 从行中提取带宽
