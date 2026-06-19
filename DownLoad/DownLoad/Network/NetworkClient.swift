@@ -180,12 +180,13 @@ actor NetworkClient {
     }
 
     /// 下载文件（支持断点续传，带实时进度回调）
+    /// - Returns: 成功时返回 destinationURL；失败时抛出 NetworkError.resumeError，其中包含 resumeData
     func downloadFileWithResume(
         from url: URL,
         to destinationURL: URL,
         resumeData: Data? = nil,
         progress: @escaping (Int64, Int64) -> Void
-    ) async throws -> (URL, Data?) {
+    ) async throws -> URL {
         return try await withCheckedThrowingContinuation { continuation in
             let delegate = DownloadDelegate(progress: progress)
             let downloadSession = URLSession(configuration: session.configuration, delegate: delegate, delegateQueue: nil)
@@ -208,12 +209,16 @@ actor NetworkClient {
                         try FileManager.default.moveItem(at: tempURL, to: destinationURL)
                         let size = (try? FileManager.default.attributesOfItem(atPath: destinationURL.path)[.size] as? Int64) ?? 0
                         progress(size, size)
-                        continuation.resume(returning: (destinationURL, savedResumeData))
+                        continuation.resume(returning: destinationURL)
                     } catch {
                         continuation.resume(throwing: error)
                     }
                 case .failure(let error):
-                    continuation.resume(throwing: error)
+                    let wrappedError = NetworkError.resumeError(
+                        underlying: error,
+                        resumeData: savedResumeData
+                    )
+                    continuation.resume(throwing: wrappedError)
                 }
             }
 

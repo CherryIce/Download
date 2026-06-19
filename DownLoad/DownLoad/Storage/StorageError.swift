@@ -14,6 +14,10 @@ enum StorageError: Error, LocalizedError {
     case fileWriteFailed(String)
     case fileReadFailed(String)
     case fileDeleteFailed(String)
+    case databaseOpenFailed(String)
+    case databaseQueryFailed(String)
+    case databaseMigrationFailed(String)
+    case recordNotFound(UUID)
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +33,14 @@ enum StorageError: Error, LocalizedError {
             return "Failed to read file at path: \(path)"
         case .fileDeleteFailed(let path):
             return "Failed to delete file at path: \(path)"
+        case .databaseOpenFailed(let message):
+            return "Database open failed: \(message)"
+        case .databaseQueryFailed(let message):
+            return "Database query failed: \(message)"
+        case .databaseMigrationFailed(let message):
+            return "Database migration failed: \(message)"
+        case .recordNotFound(let id):
+            return "Record not found for id: \(id)"
         }
     }
 }

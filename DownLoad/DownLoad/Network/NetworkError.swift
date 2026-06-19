@@ -14,6 +14,7 @@ enum NetworkError: Error, LocalizedError {
     case connectionError(Error)
     case timeout
     case invalidResponse
+    case resumeError(underlying: Error, resumeData: Data?)
 
     var errorDescription: String? {
         switch self {
@@ -29,6 +30,16 @@ enum NetworkError: Error, LocalizedError {
             return "Request timeout"
         case .invalidResponse:
             return "Invalid response from server"
+        case .resumeError(let underlying, _):
+            return "Download failed with resumable data: \(underlying.localizedDescription)"
         }
+    }
+
+    /// 提取 resumeData（如果有）
+    var resumeData: Data? {
+        if case .resumeError(_, let data) = self {
+            return data
+        }
+        return nil
     }
 }
