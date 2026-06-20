@@ -174,7 +174,7 @@ class VideoDownloadEngine {
         let format = await detectVideoFormat(from: url)
 
         Logger.info("Creating download task for URL: \(url), format: \(format)")
-        print("🔥 VideoDownloadEngine: 创建下载任务，URL: \(url), 格式: \(format)")
+        Logger.info("创建下载任务，URL: \(url), 格式: \(format)")
 
         // 2. 如果有自定义请求头，为该任务创建独立的 NetworkClient
         let client: NetworkClient
@@ -186,7 +186,7 @@ class VideoDownloadEngine {
 
         // 3. 创建对应的Handler
         let handler = createHandler(for: format, networkClient: client)
-        print("✅ Handler创建成功: \(type(of: handler))")
+        Logger.info("Handler创建成功: \(type(of: handler))")
 
         // 4. 创建下载任务
         let task = try await handler.createTask(
@@ -195,11 +195,11 @@ class VideoDownloadEngine {
             configuration: configuration,
             format: format
         )
-        print("✅ 下载任务创建成功: \(task.fileName ?? "未知文件名")")
+        Logger.info("下载任务创建成功: \(task.fileName ?? "未知文件名")")
 
         // 5. 添加到队列
         await queueManager.addTask(task)
-        print("✅ 任务已添加到队列")
+        Logger.info("任务已添加到队列")
 
         // 6. 保存到数据库并监听状态变化
         persistTask(task)

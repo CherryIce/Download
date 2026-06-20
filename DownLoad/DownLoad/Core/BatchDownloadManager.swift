@@ -124,14 +124,14 @@ actor BatchDownloadManager {
     ) async -> BatchDownloadResult {
 
         Logger.info("Creating batch download: \(name) with \(urls.count) URLs")
-        print("🔥 BatchDownloadManager: 开始创建批量任务，URLs: \(urls)")
+        Logger.info("开始创建批量任务，URLs: \(urls)")
 
         var taskItems: [BatchTaskItem] = []
         var failedItems: [BatchFailedItem] = []
 
         // 创建下载任务
         for (index, url) in urls.enumerated() {
-            print("🔥 处理URL \(index + 1)/\(urls.count): \(url)")
+            Logger.info("处理URL \(index + 1)/\(urls.count): \(url)")
             let fileName = fileNames?[index] ?? "video_\(index + 1).\(getFileExtension(from: url))"
 
             do {
@@ -140,10 +140,10 @@ actor BatchDownloadManager {
                     fileName: fileName,
                     configuration: configuration
                 )
-                print("✅ 任务创建成功: \(fileName)")
+                Logger.info("任务创建成功: \(fileName)")
                 taskItems.append(BatchTaskItem(task: task))
             } catch {
-                print("❌ 任务创建失败: \(error)，记录失败项并继续")
+                Logger.error("任务创建失败: \(error)，记录失败项并继续")
                 let failedItem = BatchFailedItem(url: url, fileName: fileName, error: error)
                 failedItems.append(failedItem)
             }
@@ -163,7 +163,7 @@ actor BatchDownloadManager {
         var batchTask = BatchDownloadTask(name: name, taskItems: taskItems, failedItems: failedItems)
         batchTask.state = state
         batchTasks[batchTask.id] = batchTask
-        print("✅ 批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
+        Logger.info("批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
 
         return BatchDownloadResult(batchTask: batchTask, failedCount: failedItems.count, hasFailures: !failedItems.isEmpty)
     }
