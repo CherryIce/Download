@@ -266,21 +266,21 @@ class BatchDownloadViewController: UIViewController {
     }
 
     private func createBatchDownload(urls: [String]) async {
-        Logger.info("开始创建批量下载任务，URLs: \(urls)")
+        AppLogger.info("开始创建批量下载任务，URLs: \(urls)")
 
         let now = Date()
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm"
         let name = "下载任务 \(formatter.string(from: now))"
-        Logger.info("批量任务名称: \(name)")
+        AppLogger.info("批量任务名称: \(name)")
 
         let result = await batchManager.createBatchDownload(
             name: name,
             urls: urls
         )
 
-        Logger.info("批量任务创建完成: \(result.batchTask.id)")
-        Logger.info(result.summary)
+        AppLogger.info("批量任务创建完成: \(result.batchTask.id)")
+        AppLogger.info(result.summary)
 
         // 如果有失败项，显示提示
         if result.hasFailures {
@@ -289,10 +289,10 @@ class BatchDownloadViewController: UIViewController {
         }
 
         await startBatchDownload(batchId: result.batchTask.id)
-        Logger.info("批量任务已开始下载")
+        AppLogger.info("批量任务已开始下载")
 
         await loadBatchTasks()
-        Logger.info("任务列表已刷新")
+        AppLogger.info("任务列表已刷新")
     }
 
     private func startBatchDownload(batchId: UUID) async {
@@ -397,7 +397,7 @@ class BatchDownloadViewController: UIViewController {
 
             do {
                 let tasks = await batchManager.getAllBatchTasks()
-                Logger.info("获取到 \(tasks.count) 个批量任务")
+                AppLogger.info("获取到 \(tasks.count) 个批量任务")
 
                 self.batchTasks = tasks
                 DispatchQueue.main.async {
@@ -408,7 +408,7 @@ class BatchDownloadViewController: UIViewController {
                     self.updateEmptyState()
                 }
             } catch {
-                Logger.error("加载批量任务失败: \(error.localizedDescription)")
+                AppLogger.error("加载批量任务失败: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.loadingIndicator.stopAnimating()
                     self.updateEmptyState(isError: true)

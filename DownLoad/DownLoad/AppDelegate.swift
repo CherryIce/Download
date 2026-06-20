@@ -24,7 +24,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 启动时执行缓存清理
         let cacheResult = FileStorageManager().performFullCacheCleanup()
         if cacheResult.deletedCount > 0 {
-            Logger.info("Startup cache cleanup: removed \(cacheResult.deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: cacheResult.freedBytes, countStyle: .file))")
+            AppLogger.info("Startup cache cleanup: removed \(cacheResult.deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: cacheResult.freedBytes, countStyle: .file))")
         }
 
         // 恢复下载任务

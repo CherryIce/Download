@@ -89,7 +89,7 @@ final class NetworkMonitor {
                 self.currentStatus.send(status)
 
                 if oldStatus != status {
-                    Logger.info("Network status changed: \(oldStatus) -> \(status)")
+                    AppLogger.info("Network status changed: \(oldStatus) -> \(status)")
                     self.statusChanged.send(status)
                 }
             }
@@ -110,13 +110,13 @@ final class NetworkMonitor {
         let status = currentStatus.value
         if status == .cellular {
             if !isCellularAllowed {
-                Logger.info("Cellular download disabled, network treated as unavailable for downloads")
+                AppLogger.info("Cellular download disabled, network treated as unavailable for downloads")
                 // 发送蜂窝受限事件，触发引擎暂停下载
                 DispatchQueue.main.async {
                     self.statusChanged.send(status)
                 }
             } else {
-                Logger.info("Cellular download enabled, network available for downloads")
+                AppLogger.info("Cellular download enabled, network available for downloads")
                 // 发送蜂窝可用事件，触发引擎恢复下载
                 DispatchQueue.main.async {
                     self.statusChanged.send(status)

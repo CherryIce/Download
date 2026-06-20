@@ -148,11 +148,11 @@ class MP4DownloadTask: DownloadTask {
 
     func retry() async throws {
         guard state.value == .failed else {
-            Logger.warning("MP4 retry() called but state is not .failed (current: \(state.value.displayText)), task: \(id)")
+            AppLogger.warning("MP4 retry() called but state is not .failed (current: \(state.value.displayText)), task: \(id)")
             return
         }
 
-        Logger.info("Retrying MP4 download task: \(id)")
+        AppLogger.info("Retrying MP4 download task: \(id)")
 
         // 重置终止原因和暂停原因
         terminationReason = .none
@@ -172,7 +172,7 @@ class MP4DownloadTask: DownloadTask {
         let remainingBytes = total - downloaded
         if remainingBytes > 0,
            !storageManager.hasEnoughSpaceForContinue(requiredBytes: remainingBytes) {
-            Logger.warning("Storage space insufficient during MP4 download, pausing task: \(id)")
+            AppLogger.warning("Storage space insufficient during MP4 download, pausing task: \(id)")
             Task { [weak self] in
                 guard let self = self else { return }
                 await self.pause(reason: .insufficientStorage)
@@ -251,7 +251,7 @@ class MP4DownloadTask: DownloadTask {
                 }
                 // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
             } catch {
-                Logger.error("MP4 download failed: \(error)")
+                AppLogger.error("MP4 download failed: \(error)")
                 state.send(.failed)
                 throw DownloadError.taskFailed(error)
             }
@@ -428,7 +428,7 @@ class MP4DownloadTask: DownloadTask {
                 }
                 // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
             } catch {
-                Logger.error("MP4 background download failed: \(error)")
+                AppLogger.error("MP4 background download failed: \(error)")
                 state.send(.failed)
                 throw DownloadError.taskFailed(error)
             }
@@ -455,7 +455,7 @@ class MP4DownloadTask: DownloadTask {
                     }
                 }
                 resumeData = data
-                Logger.info("MP4 background download paused, resumeData saved (\(data?.count ?? 0) bytes)")
+                AppLogger.info("MP4 background download paused, resumeData saved (\(data?.count ?? 0) bytes)")
             }
             backgroundDownloadTask = nil
         } else {
@@ -463,7 +463,7 @@ class MP4DownloadTask: DownloadTask {
             if let handle = downloadHandle {
                 let data = await handle.cancelWithResumeData()
                 resumeData = data
-                Logger.info("MP4 download paused, resumeData saved (\(data?.count ?? 0) bytes)")
+                AppLogger.info("MP4 download paused, resumeData saved (\(data?.count ?? 0) bytes)")
             }
             downloadHandle = nil
         }
@@ -504,7 +504,7 @@ class MP4DownloadTask: DownloadTask {
     /// 带原因的暂停（供网络监控使用）
     func pause(reason: PauseReason) async {
         pauseReason = reason
-        Logger.info("MP4 task \(id) paused due to: \(reason.rawValue)")
+        AppLogger.info("MP4 task \(id) paused due to: \(reason.rawValue)")
         await pause()
     }
 }

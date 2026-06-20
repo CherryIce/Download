@@ -112,7 +112,7 @@ actor NetworkClient {
                 return string
             } catch {
                 lastError = error
-                Logger.error("Download string attempt \(attempt + 1) failed: \(error.localizedDescription)")
+                AppLogger.error("Download string attempt \(attempt + 1) failed: \(error.localizedDescription)")
 
                 if attempt < retryCount - 1 {
                     let delay = pow(2.0, Double(attempt))
@@ -144,7 +144,7 @@ actor NetworkClient {
                 return data
             } catch {
                 lastError = error
-                Logger.error("Download data attempt \(attempt + 1) failed: \(error.localizedDescription)")
+                AppLogger.error("Download data attempt \(attempt + 1) failed: \(error.localizedDescription)")
 
                 if attempt < retryCount - 1 {
                     let delay = pow(2.0, Double(attempt))
@@ -299,7 +299,7 @@ actor NetworkClient {
                 )
             } catch {
                 lastError = error
-                Logger.warning("HEAD request attempt \(attempt + 1) failed for \(url.absoluteString): \(error.localizedDescription)")
+                AppLogger.warning("HEAD request attempt \(attempt + 1) failed for \(url.absoluteString): \(error.localizedDescription)")
 
                 if attempt < retryCount - 1 {
                     let delay = pow(2.0, Double(attempt))
@@ -386,7 +386,7 @@ actor NetworkClient {
                 )
             } catch {
                 lastError = error
-                Logger.error("Download cancellable attempt \(attempt + 1) failed: \(error.localizedDescription)")
+                AppLogger.error("Download cancellable attempt \(attempt + 1) failed: \(error.localizedDescription)")
 
                 if attempt < retryCount - 1 {
                     let delay = pow(2.0, Double(attempt))

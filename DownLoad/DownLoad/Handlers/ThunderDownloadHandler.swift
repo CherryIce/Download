@@ -35,7 +35,7 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
         switch format {
         case .magnet:
             // 直接输入的磁力链接，不需要解析
-            Logger.info("Magnet link detected, not supported: \(url)")
+            AppLogger.info("Magnet link detected, not supported: \(url)")
             throw DownloadError.magnetLinkNotSupported
 
         case .thunderP2P:
@@ -56,11 +56,11 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
         let result = try parser.parse(thunderURL: url)
         let realURLString = result.url.absoluteString
 
-        Logger.info("Thunder protocol decoded to: \(realURLString)")
+        AppLogger.info("Thunder protocol decoded to: \(realURLString)")
 
         // 如果解码后是磁力链接，抛出不支持错误
         if result.isMagnetLink {
-            Logger.info("Thunder link decoded to magnet link, not supported: \(realURLString)")
+            AppLogger.info("Thunder link decoded to magnet link, not supported: \(realURLString)")
             throw DownloadError.magnetLinkNotSupported
         }
 
@@ -75,13 +75,13 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
 
         // P2P 链接触发 P2P 不支持提示
         if result.isP2P && result.isMagnetLink {
-            Logger.info("ThunderP2P decoded to magnet link, not supported: \(result.url.absoluteString)")
+            AppLogger.info("ThunderP2P decoded to magnet link, not supported: \(result.url.absoluteString)")
             throw DownloadError.magnetLinkNotSupported
         }
 
         // P2P 链接解码后为普通 URL（罕见但可能），尝试委托下载
         let realURLString = result.url.absoluteString
-        Logger.info("ThunderP2P decoded to real URL: \(realURLString)")
+        AppLogger.info("ThunderP2P decoded to real URL: \(realURLString)")
 
         let detectedFormat = await detectVideoFormat(from: realURLString)
         return try await delegateToHandler(url: realURLString, fileName: fileName, configuration: configuration, format: detectedFormat)
@@ -129,7 +129,7 @@ class ThunderDownloadHandler: DownloadHandlerProtocol {
             }
             return .mp4
         } catch {
-            Logger.warning("HEAD request failed for thunder format detection, defaulting to mp4")
+            AppLogger.warning("HEAD request failed for thunder format detection, defaulting to mp4")
             return .mp4
         }
     }

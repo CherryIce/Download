@@ -31,9 +31,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task {
             do {
                 let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
-                Logger.info("Notification authorization granted: \(granted)")
+                AppLogger.info("Notification authorization granted: \(granted)")
             } catch {
-                Logger.error("Notification authorization request failed: \(error)")
+                AppLogger.error("Notification authorization request failed: \(error)")
             }
         }
     }

@@ -123,15 +123,15 @@ actor BatchDownloadManager {
         configuration: DownloadConfiguration = .default
     ) async -> BatchDownloadResult {
 
-        Logger.info("Creating batch download: \(name) with \(urls.count) URLs")
-        Logger.info("开始创建批量任务，URLs: \(urls)")
+        AppLogger.info("Creating batch download: \(name) with \(urls.count) URLs")
+        AppLogger.info("开始创建批量任务，URLs: \(urls)")
 
         var taskItems: [BatchTaskItem] = []
         var failedItems: [BatchFailedItem] = []
 
         // 创建下载任务
         for (index, url) in urls.enumerated() {
-            Logger.info("处理URL \(index + 1)/\(urls.count): \(url)")
+            AppLogger.info("处理URL \(index + 1)/\(urls.count): \(url)")
             let fileName = fileNames?[index] ?? "video_\(index + 1).\(getFileExtension(from: url))"
 
             do {
@@ -140,10 +140,10 @@ actor BatchDownloadManager {
                     fileName: fileName,
                     configuration: configuration
                 )
-                Logger.info("任务创建成功: \(fileName)")
+                AppLogger.info("任务创建成功: \(fileName)")
                 taskItems.append(BatchTaskItem(task: task))
             } catch {
-                Logger.error("任务创建失败: \(error)，记录失败项并继续")
+                AppLogger.error("任务创建失败: \(error)，记录失败项并继续")
                 let failedItem = BatchFailedItem(url: url, fileName: fileName, error: error)
                 failedItems.append(failedItem)
             }
@@ -163,7 +163,7 @@ actor BatchDownloadManager {
         var batchTask = BatchDownloadTask(name: name, taskItems: taskItems, failedItems: failedItems)
         batchTask.state = state
         batchTasks[batchTask.id] = batchTask
-        Logger.info("批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
+        AppLogger.info("批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
 
         return BatchDownloadResult(batchTask: batchTask, failedCount: failedItems.count, hasFailures: !failedItems.isEmpty)
     }
@@ -174,7 +174,7 @@ actor BatchDownloadManager {
             throw BatchDownloadError.invalidBatchId
         }
 
-        Logger.info("Starting batch download: \(batchTask.name)")
+        AppLogger.info("Starting batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .downloading
 
         // 任务已在 Engine 的 queueManager 中，只需确保状态正确
@@ -191,7 +191,7 @@ actor BatchDownloadManager {
             return
         }
 
-        Logger.info("Pausing batch download: \(batchTask.name)")
+        AppLogger.info("Pausing batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .paused
 
         // 暂停所有任务
@@ -206,7 +206,7 @@ actor BatchDownloadManager {
             return
         }
 
-        Logger.info("Cancelling batch download: \(batchTask.name)")
+        AppLogger.info("Cancelling batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .cancelled
 
         // 取消所有任务并从队列中移除
@@ -221,7 +221,7 @@ actor BatchDownloadManager {
             return
         }
 
-        Logger.info("Deleting batch download: \(batchTask.name)")
+        AppLogger.info("Deleting batch download: \(batchTask.name)")
 
         // 删除所有任务（包括已完成文件的清理）
         for item in batchTask.taskItems {
@@ -306,7 +306,7 @@ actor BatchDownloadManager {
             return nil
         }
 
-        Logger.info("Retrying \(failedItemsToRetry.count) failed items for batch: \(batchTask.name)")
+        AppLogger.info("Retrying \(failedItemsToRetry.count) failed items for batch: \(batchTask.name)")
 
         var newTaskItems: [BatchTaskItem] = []
         var stillFailedItems: [BatchFailedItem] = []
@@ -371,7 +371,7 @@ actor BatchDownloadManager {
             await deleteBatchDownload(batchId: batchId)
         }
 
-        Logger.info("All batch downloads cleared")
+        AppLogger.info("All batch downloads cleared")
     }
 
     // MARK: - Private Methods

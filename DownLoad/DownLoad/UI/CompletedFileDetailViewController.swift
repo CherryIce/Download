@@ -126,7 +126,7 @@ class CompletedFileDetailViewController: UIViewController {
                 NotificationCenter.default.post(name: Notification.Name("CompletedFileDeleted"), object: nil, userInfo: ["fileName": self.item.fileName])
             }
 
-            Logger.info("Deleted completed file from detail: \(self.item.fileName)")
+            AppLogger.info("Deleted completed file from detail: \(self.item.fileName)")
 
             // 返回上一页
             self.navigationController?.popViewController(animated: true)

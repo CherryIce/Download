@@ -1,5 +1,5 @@
 //
-//  Logger.swift
+//  AppLogger.swift
 //  DownLoad
 //
 //  Created by hubin on 2026/4/29.
@@ -8,7 +8,7 @@
 import Foundation
 import os.log
 
-struct Logger {
+struct AppLogger {
     private static let subsystem = "com.download.videodownloader"
 
     static func info(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {

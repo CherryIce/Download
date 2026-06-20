@@ -75,7 +75,7 @@ class FileStorageManager {
             let values = try documentsURL.resourceValues(forKeys: [.volumeAvailableCapacityKey])
             return Int64(values.volumeAvailableCapacity ?? 0)
         } catch {
-            Logger.error("Failed to get available storage space: \(error)")
+            AppLogger.error("Failed to get available storage space: \(error)")
             return 0
         }
     }
@@ -90,14 +90,14 @@ class FileStorageManager {
         }
 
         try fileManager.moveItem(at: source, to: destination)
-        Logger.info("File moved from \(source.path) to \(destination.path)")
+        AppLogger.info("File moved from \(source.path) to \(destination.path)")
     }
 
     /// 删除文件
     func deleteFile(at url: URL) throws {
         if fileManager.fileExists(atPath: url.path) {
             try fileManager.removeItem(at: url)
-            Logger.info("File deleted at \(url.path)")
+            AppLogger.info("File deleted at \(url.path)")
         }
     }
 
@@ -108,7 +108,7 @@ class FileStorageManager {
             for fileURL in contents {
                 try fileManager.removeItem(at: fileURL)
             }
-            Logger.info("Directory cleaned at \(url.path)")
+            AppLogger.info("Directory cleaned at \(url.path)")
         }
     }
 
@@ -118,7 +118,7 @@ class FileStorageManager {
             let attributes = try fileManager.attributesOfItem(atPath: url.path)
             return (attributes[.size] as? Int64) ?? 0
         } catch {
-            Logger.error("Failed to get file size: \(error)")
+            AppLogger.error("Failed to get file size: \(error)")
             return 0
         }
     }
@@ -141,7 +141,7 @@ class FileStorageManager {
                 }
             }
         } catch {
-            Logger.error("Failed to calculate directory size: \(error)")
+            AppLogger.error("Failed to calculate directory size: \(error)")
         }
 
         return totalSize
@@ -153,9 +153,9 @@ class FileStorageManager {
         if !fileManager.fileExists(atPath: url.path) {
             do {
                 try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-                Logger.debug("Directory created at \(url.path)")
+                AppLogger.debug("Directory created at \(url.path)")
             } catch {
-                Logger.error("Failed to create directory at \(url.path): \(error)")
+                AppLogger.error("Failed to create directory at \(url.path): \(error)")
             }
         }
     }
@@ -202,7 +202,7 @@ extension FileStorageManager {
                 return Int(age / (24 * 60 * 60))
             }
         } catch {
-            Logger.error("Failed to get cache file age: \(error)")
+            AppLogger.error("Failed to get cache file age: \(error)")
         }
         return nil
     }
@@ -225,7 +225,7 @@ extension FileStorageManager {
         deletedCount += result.deletedCount
         freedBytes += result.freedBytes
 
-        Logger.info("Cleaned expired cache: \(deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file))")
+        AppLogger.info("Cleaned expired cache: \(deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file))")
         return (deletedCount, freedBytes)
     }
 
@@ -260,7 +260,7 @@ extension FileStorageManager {
                         try? fileManager.removeItem(at: fileURL)
                         freedBytes += fileSize
                         deletedCount += 1
-                        Logger.info("Deleted expired cache file: \(fileURL.lastPathComponent)")
+                        AppLogger.info("Deleted expired cache file: \(fileURL.lastPathComponent)")
                     }
                 }
             }
@@ -302,13 +302,13 @@ extension FileStorageManager {
                 freedBytes += file.size
                 bytesToFree -= file.size
                 deletedCount += 1
-                Logger.info("Deleted cache file for size limit: \(file.url.lastPathComponent) (\(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file)))")
+                AppLogger.info("Deleted cache file for size limit: \(file.url.lastPathComponent) (\(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file)))")
             } catch {
-                Logger.error("Failed to delete cache file \(file.url.path): \(error)")
+                AppLogger.error("Failed to delete cache file \(file.url.path): \(error)")
             }
         }
 
-        Logger.info("Enforced cache size limit: \(deletedCount) files deleted, \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file)) freed")
+        AppLogger.info("Enforced cache size limit: \(deletedCount) files deleted, \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file)) freed")
         return (deletedCount, freedBytes)
     }
 
@@ -339,7 +339,7 @@ extension FileStorageManager {
     /// 执行完整缓存清理（先清理过期，再强制大小限制）
     /// - Returns: 清理结果汇总
     func performFullCacheCleanup() -> (deletedCount: Int, freedBytes: Int64) {
-        Logger.info("Starting full cache cleanup...")
+        AppLogger.info("Starting full cache cleanup...")
 
         let expiredResult = cleanExpiredCache()
         let sizeResult = enforceCacheSizeLimit()
@@ -347,7 +347,7 @@ extension FileStorageManager {
         let totalDeleted = expiredResult.deletedCount + sizeResult.deletedCount
         let totalFreed = expiredResult.freedBytes + sizeResult.freedBytes
 
-        Logger.info("Full cache cleanup completed: \(totalDeleted) files deleted, \(ByteCountFormatter.string(fromByteCount: totalFreed, countStyle: .file)) freed")
+        AppLogger.info("Full cache cleanup completed: \(totalDeleted) files deleted, \(ByteCountFormatter.string(fromByteCount: totalFreed, countStyle: .file)) freed")
         return (totalDeleted, totalFreed)
     }
 }

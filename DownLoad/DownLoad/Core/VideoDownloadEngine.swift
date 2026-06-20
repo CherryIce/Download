@@ -76,7 +76,7 @@ class VideoDownloadEngine {
                 deadline: .now() + Constants.NetworkMonitor.networkLostDelay,
                 execute: workItem
             )
-            Logger.info("Network lost detected, will pause downloads in \(Constants.NetworkMonitor.networkLostDelay)s")
+            AppLogger.info("Network lost detected, will pause downloads in \(Constants.NetworkMonitor.networkLostDelay)s")
 
         } else if newStatus == .cellular && !NetworkMonitor.shared.isCellularAllowed {
             // 蜂窝网络但不允许蜂窝下载：暂停所有任务
@@ -88,7 +88,7 @@ class VideoDownloadEngine {
                 deadline: .now() + Constants.NetworkMonitor.networkLostDelay,
                 execute: workItem
             )
-            Logger.info("Cellular network detected but cellular download disabled, will pause downloads")
+            AppLogger.info("Cellular network detected but cellular download disabled, will pause downloads")
 
         } else {
             // 网络恢复（WiFi 或允许的蜂窝）：延迟后恢复因网络断开暂停的任务
@@ -100,7 +100,7 @@ class VideoDownloadEngine {
                 deadline: .now() + Constants.NetworkMonitor.networkRestoreDelay,
                 execute: workItem
             )
-            Logger.info("Network restored (\(newStatus)), will resume paused downloads in \(Constants.NetworkMonitor.networkRestoreDelay)s")
+            AppLogger.info("Network restored (\(newStatus)), will resume paused downloads in \(Constants.NetworkMonitor.networkRestoreDelay)s")
         }
     }
 
@@ -119,7 +119,7 @@ class VideoDownloadEngine {
                 }
             }
 
-            Logger.info("Paused \(pausedCount) downloading tasks due to: \(reason.rawValue)")
+            AppLogger.info("Paused \(pausedCount) downloading tasks due to: \(reason.rawValue)")
         }
     }
 
@@ -131,7 +131,7 @@ class VideoDownloadEngine {
 
             // 再次检查网络是否可用（防止延迟期间网络又断了）
             guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
-                Logger.info("Network no longer available, skipping auto-resume")
+                AppLogger.info("Network no longer available, skipping auto-resume")
                 return
             }
 
@@ -146,12 +146,12 @@ class VideoDownloadEngine {
                         try await task.resume()
                         resumedCount += 1
                     } catch {
-                        Logger.error("Failed to resume network-paused task \(task.id): \(error)")
+                        AppLogger.error("Failed to resume network-paused task \(task.id): \(error)")
                     }
                 }
             }
 
-            Logger.info("Resumed \(resumedCount) network-paused tasks")
+            AppLogger.info("Resumed \(resumedCount) network-paused tasks")
         }
     }
 
@@ -164,7 +164,7 @@ class VideoDownloadEngine {
 
         // 检查网络是否可用
         guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
-            Logger.warning("Cannot create download task: network not available for downloads")
+            AppLogger.warning("Cannot create download task: network not available for downloads")
             throw DownloadError.networkError(
                 NSError(domain: "NetworkMonitor", code: -1, userInfo: [
                     NSLocalizedDescriptionKey: "网络不可用，无法创建下载任务"
@@ -175,8 +175,8 @@ class VideoDownloadEngine {
         // 1. 解析URL类型
         let format = await detectVideoFormat(from: url)
 
-        Logger.info("Creating download task for URL: \(url), format: \(format)")
-        Logger.info("创建下载任务，URL: \(url), 格式: \(format)")
+        AppLogger.info("Creating download task for URL: \(url), format: \(format)")
+        AppLogger.info("创建下载任务，URL: \(url), 格式: \(format)")
 
         // 2. 如果有自定义请求头，为该任务创建独立的 NetworkClient
         let client: NetworkClient
@@ -188,7 +188,7 @@ class VideoDownloadEngine {
 
         // 3. 创建对应的Handler
         let handler = createHandler(for: format, networkClient: client)
-        Logger.info("Handler创建成功: \(type(of: handler))")
+        AppLogger.info("Handler创建成功: \(type(of: handler))")
 
         // 4. 创建下载任务
         let task = try await handler.createTask(
@@ -197,11 +197,11 @@ class VideoDownloadEngine {
             configuration: configuration,
             format: format
         )
-        Logger.info("下载任务创建成功: \(task.fileName ?? "未知文件名")")
+        AppLogger.info("下载任务创建成功: \(task.fileName ?? "未知文件名")")
 
         // 5. 添加到队列
         await queueManager.addTask(task)
-        Logger.info("任务已添加到队列")
+        AppLogger.info("任务已添加到队列")
 
         // 6. 保存到数据库并监听状态变化
         persistTask(task)
@@ -213,11 +213,11 @@ class VideoDownloadEngine {
     /// 开始下载
     /// 任务已经由 queueManager 在 addTask 时自动调度，此方法仅用于外部显式触发（如暂停后恢复）
     func startDownload(task: any DownloadTask) async throws {
-        Logger.info("Requesting start for download: \(task.id)")
+        AppLogger.info("Requesting start for download: \(task.id)")
 
         // 检查网络是否可用
         guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
-            Logger.warning("Cannot start download: network not available for downloads")
+            AppLogger.warning("Cannot start download: network not available for downloads")
             throw DownloadError.networkError(
                 NSError(domain: "NetworkMonitor", code: -1, userInfo: [
                     NSLocalizedDescriptionKey: "网络不可用，无法开始下载"
@@ -240,11 +240,11 @@ class VideoDownloadEngine {
 
     /// 重试失败的下载任务
     func retryDownload(task: any DownloadTask) async throws {
-        Logger.info("Requesting retry for download: \(task.id)")
+        AppLogger.info("Requesting retry for download: \(task.id)")
 
         // 检查网络是否可用
         guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
-            Logger.warning("Cannot retry download: network not available for downloads")
+            AppLogger.warning("Cannot retry download: network not available for downloads")
             throw DownloadError.networkError(
                 NSError(domain: "NetworkMonitor", code: -1, userInfo: [
                     NSLocalizedDescriptionKey: "网络不可用，无法重试下载"
@@ -262,13 +262,13 @@ class VideoDownloadEngine {
 
     /// 暂停下载
     func pauseDownload(task: any DownloadTask) async {
-        Logger.info("Pausing download: \(task.id)")
+        AppLogger.info("Pausing download: \(task.id)")
         await task.pause()
     }
 
     /// 取消下载
     func cancelDownload(task: any DownloadTask) async {
-        Logger.info("Cancelling download: \(task.id)")
+        AppLogger.info("Cancelling download: \(task.id)")
         await task.cancel()
         await queueManager.removeTask(task.id)
         deleteTaskRecord(task.id)
@@ -276,7 +276,7 @@ class VideoDownloadEngine {
 
     /// 删除下载任务
     func deleteDownloadTask(task: any DownloadTask) async {
-        Logger.info("Deleting download task: \(task.id)")
+        AppLogger.info("Deleting download task: \(task.id)")
 
         // 先保存 completedURL 和完成状态，因为 cancel() 会改变状态
         let completedURL = task.completedURL
@@ -293,7 +293,7 @@ class VideoDownloadEngine {
         // 如果任务已完成，删除对应的文件
         if isCompleted, let url = completedURL {
             try? storageManager.deleteFile(at: url)
-            Logger.info("Deleted completed file: \(url.path)")
+            AppLogger.info("Deleted completed file: \(url.path)")
         }
 
         // 删除数据库记录
@@ -329,7 +329,7 @@ class VideoDownloadEngine {
         let inProgressDir = storageManager.inProgressDirectory()
         try? storageManager.cleanDirectory(at: inProgressDir)
 
-        Logger.info("All downloads cleared")
+        AppLogger.info("All downloads cleared")
 
         // 清空数据库
         try? database.deleteAllRecords()
@@ -345,7 +345,7 @@ class VideoDownloadEngine {
         Task(priority: .background) {
             let result = storageManager.performFullCacheCleanup()
             if result.deletedCount > 0 {
-                Logger.info("Post-download cache cleanup: removed \(result.deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: result.freedBytes, countStyle: .file))")
+                AppLogger.info("Post-download cache cleanup: removed \(result.deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: result.freedBytes, countStyle: .file))")
             }
         }
     }
@@ -398,7 +398,7 @@ class VideoDownloadEngine {
         guard !hasRestoredTasks else { return }
         hasRestoredTasks = true
 
-        Logger.info("Restoring tasks from database...")
+        AppLogger.info("Restoring tasks from database...")
 
         do {
             let records = try database.loadAllRecords()
@@ -407,7 +407,7 @@ class VideoDownloadEngine {
                 return state != .completed && state != .cancelled
             }
 
-            Logger.info("Found \(incompleteRecords.count) incomplete tasks to restore")
+            AppLogger.info("Found \(incompleteRecords.count) incomplete tasks to restore")
 
             // 尝试获取仍在运行的后台下载任务（App 被系统杀死后重启场景）
             let activeBackgroundTasks = await BackgroundDownloadSession.shared.getAllTasks()
@@ -450,7 +450,7 @@ class VideoDownloadEngine {
 
                     // 如果有对应的后台任务仍在运行，重新注册回调
                     if let taskIdentifier = backgroundTaskURLMap[item.url] {
-                        Logger.info("Re-registering background task handler for: \(item.url), taskIdentifier: \(taskIdentifier)")
+                        AppLogger.info("Re-registering background task handler for: \(item.url), taskIdentifier: \(taskIdentifier)")
                         BackgroundDownloadSession.shared.registerHandler(
                             for: taskIdentifier,
                             taskId: item.id,
@@ -477,11 +477,11 @@ class VideoDownloadEngine {
                                         try self.storageManager.moveFile(from: tempURL, to: destinationURL)
                                         mp4Task.markCompleted(url: destinationURL)
                                     } catch {
-                                        Logger.error("Failed to move background downloaded file: \(error)")
+                                        AppLogger.error("Failed to move background downloaded file: \(error)")
                                         mp4Task.state.send(.failed)
                                     }
                                 case .failure(let error):
-                                    Logger.error("Background download failed after restore: \(error)")
+                                    AppLogger.error("Background download failed after restore: \(error)")
                                     mp4Task.state.send(.failed)
                                 }
                             }
@@ -492,7 +492,7 @@ class VideoDownloadEngine {
                 case .m3u8:
                     do {
                         guard let m3u8URL = URL(string: item.url) else {
-                            Logger.error("Invalid M3U8 URL for restored task: \(item.id)")
+                            AppLogger.error("Invalid M3U8 URL for restored task: \(item.id)")
                             continue
                         }
 
@@ -511,7 +511,7 @@ class VideoDownloadEngine {
 
                         // 跳过直播流恢复
                         if mediaPlaylist.isLive {
-                            Logger.warning("Skipping live stream restoration: \(item.id)")
+                            AppLogger.warning("Skipping live stream restoration: \(item.id)")
                             continue
                         }
 
@@ -539,11 +539,11 @@ class VideoDownloadEngine {
 
                         task = m3u8Task
                     } catch {
-                        Logger.error("Failed to restore M3U8 task \(item.id): \(error)")
+                        AppLogger.error("Failed to restore M3U8 task \(item.id): \(error)")
                         continue
                     }
                 case .thunder, .thunderP2P, .magnet:
-                    Logger.warning("Thunder/P2P/Magnet task restoration not fully supported, skipping: \(item.id)")
+                    AppLogger.warning("Thunder/P2P/Magnet task restoration not fully supported, skipping: \(item.id)")
                     continue
                 }
 
@@ -559,9 +559,9 @@ class VideoDownloadEngine {
                 }
             }
 
-            Logger.info("Restored tasks from database")
+            AppLogger.info("Restored tasks from database")
         } catch {
-            Logger.error("Failed to restore tasks from database: \(error)")
+            AppLogger.error("Failed to restore tasks from database: \(error)")
         }
     }
 
@@ -638,28 +638,28 @@ class VideoDownloadEngine {
     private func detectVideoFormat(from url: String) async -> VideoFormat {
         // 第一级：URL 字符串快速匹配
         if let format = VideoFormatDetector.detectFromURLString(url) {
-            Logger.info("Format detected from URL string: \(format) for URL: \(url)")
+            AppLogger.info("Format detected from URL string: \(format) for URL: \(url)")
             return format
         }
 
         // 第二级：HEAD 请求 Content-Type 检测
         guard let urlObj = URL(string: url) else {
-            Logger.warning("Invalid URL for format detection, defaulting to mp4: \(url)")
+            AppLogger.warning("Invalid URL for format detection, defaulting to mp4: \(url)")
             return .mp4
         }
 
         do {
             let headers = try await networkClient.fetchResponseHeaders(from: urlObj)
             if let format = VideoFormatDetector.detectFromContentType(headers.contentType) {
-                Logger.info("Format detected from Content-Type '\(headers.contentType ?? "nil")': \(format) for URL: \(url)")
+                AppLogger.info("Format detected from Content-Type '\(headers.contentType ?? "nil")': \(format) for URL: \(url)")
                 return format
             }
 
-            Logger.info("Content-Type '\(headers.contentType ?? "nil")' not recognized, defaulting to mp4 for URL: \(url)")
+            AppLogger.info("Content-Type '\(headers.contentType ?? "nil")' not recognized, defaulting to mp4 for URL: \(url)")
             return .mp4
         } catch {
             // HEAD 请求失败，兜底为 mp4
-            Logger.warning("HEAD request failed for format detection (\(error.localizedDescription)), defaulting to mp4 for URL: \(url)")
+            AppLogger.warning("HEAD request failed for format detection (\(error.localizedDescription)), defaulting to mp4 for URL: \(url)")
             return .mp4
         }
     }

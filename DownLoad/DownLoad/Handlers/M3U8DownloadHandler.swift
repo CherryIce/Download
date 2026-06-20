@@ -159,7 +159,7 @@ class M3U8DownloadTask: DownloadTask {
         do {
             try storageManager.saveJSON(downloadState, to: url)
         } catch {
-            Logger.error("Failed to save M3U8 download state: \(error)")
+            AppLogger.error("Failed to save M3U8 download state: \(error)")
         }
     }
 
@@ -169,7 +169,7 @@ class M3U8DownloadTask: DownloadTask {
         do {
             return try storageManager.loadJSON(from: url, as: M3U8DownloadState.self)
         } catch {
-            Logger.error("Failed to load M3U8 download state: \(error)")
+            AppLogger.error("Failed to load M3U8 download state: \(error)")
             return nil
         }
     }
@@ -185,7 +185,7 @@ class M3U8DownloadTask: DownloadTask {
            savedState.totalSegments == playlist.segments.count,
            savedState.playlistIdentifier == (playlist.segments.first?.url.absoluteString ?? url) {
             self.downloadState = savedState
-            Logger.info("Restored M3U8 download state: \(savedState.completedSegments.count)/\(savedState.totalSegments) segments")
+            AppLogger.info("Restored M3U8 download state: \(savedState.completedSegments.count)/\(savedState.totalSegments) segments")
         }
 
         state.send(.downloading)
@@ -257,18 +257,18 @@ class M3U8DownloadTask: DownloadTask {
                 saveDownloadState()
             } catch let error as DownloadError {
                 if case .insufficientStorage = error {
-                    Logger.error("M3U8 download paused due to insufficient storage: \(id)")
+                    AppLogger.error("M3U8 download paused due to insufficient storage: \(id)")
                     // 清理临时文件
                     let tempDir = storageManager.createTaskDirectory(taskId: id)
                     try? storageManager.deleteFile(at: tempDir)
                     state.send(.failed)
                 } else {
-                    Logger.error("M3U8 download failed: \(error)")
+                    AppLogger.error("M3U8 download failed: \(error)")
                     state.send(.failed)
                 }
                 saveDownloadState()
             } catch {
-                Logger.error("M3U8 download failed: \(error)")
+                AppLogger.error("M3U8 download failed: \(error)")
                 state.send(.failed)
                 saveDownloadState()
                 throw DownloadError.taskFailed(error)
@@ -280,11 +280,11 @@ class M3U8DownloadTask: DownloadTask {
 
     func retry() async throws {
         guard state.value == .failed else {
-            Logger.warning("M3U8 retry() called but state is not .failed (current: \(state.value.displayText)), task: \(id)")
+            AppLogger.warning("M3U8 retry() called but state is not .failed (current: \(state.value.displayText)), task: \(id)")
             return
         }
 
-        Logger.info("Retrying M3U8 download task: \(id), preserving \(downloadState.completedSegments.count)/\(downloadState.totalSegments) completed segments")
+        AppLogger.info("Retrying M3U8 download task: \(id), preserving \(downloadState.completedSegments.count)/\(downloadState.totalSegments) completed segments")
 
         // 清除暂停原因
         pauseReason = nil
@@ -324,7 +324,7 @@ class M3U8DownloadTask: DownloadTask {
     /// 带原因的暂停（供网络监控使用）
     func pause(reason: PauseReason) async {
         pauseReason = reason
-        Logger.info("M3U8 task \(id) paused due to: \(reason.rawValue)")
+        AppLogger.info("M3U8 task \(id) paused due to: \(reason.rawValue)")
         await pause()
     }
 
@@ -382,7 +382,7 @@ class M3U8DownloadTask: DownloadTask {
         let estimatedRemaining = estimateRemainingBytes()
         if estimatedRemaining > 0,
            !storageManager.hasEnoughSpaceForContinue(requiredBytes: estimatedRemaining) {
-            Logger.warning("Storage space insufficient before downloading segment \(index), pausing M3U8 task: \(id)")
+            AppLogger.warning("Storage space insufficient before downloading segment \(index), pausing M3U8 task: \(id)")
             throw DownloadError.insufficientStorage(
                 required: estimatedRemaining,
                 available: storageManager.availableStorageSpace()

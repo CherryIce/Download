@@ -359,7 +359,7 @@ class CompletedFilesViewController: UIViewController {
             self.updateEmptyState()
             self.updateStatsHeader()
 
-            Logger.info("Deleted completed file: \(item.fileName)")
+            AppLogger.info("Deleted completed file: \(item.fileName)")
         })
         present(alert, animated: true)
     }

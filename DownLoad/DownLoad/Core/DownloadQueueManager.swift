@@ -45,12 +45,12 @@ actor DownloadQueueManager {
 
         // 避免重复添加
         guard tasks[taskId] == nil else {
-            Logger.info("Task already exists in queue: \(taskId)")
+            AppLogger.info("Task already exists in queue: \(taskId)")
             return
         }
 
         tasks[taskId] = task
-        Logger.info("Task added to queue: \(taskId)")
+        AppLogger.info("Task added to queue: \(taskId)")
 
         // 订阅任务状态变化，用于触发调度
         subscribeToTaskState(task)
@@ -71,7 +71,7 @@ actor DownloadQueueManager {
         pendingQueue.removeAll { $0.taskId == taskId }
 
         tasks.removeValue(forKey: taskId)
-        Logger.info("Task removed from queue: \(taskId)")
+        AppLogger.info("Task removed from queue: \(taskId)")
 
         // 触发调度，尝试启动等待队列中的任务
         processNextPendingTask()
@@ -115,7 +115,7 @@ actor DownloadQueueManager {
         pendingQueue.removeAll()
         tasks.removeAll()
 
-        Logger.info("All tasks cleared from queue")
+        AppLogger.info("All tasks cleared from queue")
     }
 
     // MARK: - Private Methods
@@ -148,7 +148,7 @@ actor DownloadQueueManager {
         case .completed, .paused, .failed, .cancelled:
             if wasRunning {
                 runningTaskIds.remove(taskId)
-                Logger.info("Task \(taskId) finished with state: \(newState.rawValue), slot released. Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
+                AppLogger.info("Task \(taskId) finished with state: \(newState.rawValue), slot released. Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
                 processNextPendingTask()
             }
         case .downloading:
@@ -197,7 +197,7 @@ actor DownloadQueueManager {
             pendingQueue.append(newEntry)
         }
 
-        Logger.info("Task \(taskId) queued with priority \(priority). Queue position: \(pendingQueue.count), Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
+        AppLogger.info("Task \(taskId) queued with priority \(priority). Queue position: \(pendingQueue.count), Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
     }
 
     /// 启动指定任务
@@ -206,14 +206,14 @@ actor DownloadQueueManager {
         guard !runningTaskIds.contains(taskId) else { return }
 
         runningTaskIds.insert(taskId)
-        Logger.info("Task \(taskId) started. Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
+        AppLogger.info("Task \(taskId) started. Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
 
         // 异步启动任务，不阻塞当前 actor 方法
         Task {
             do {
                 try await task.resume()
             } catch {
-                Logger.error("Task \(taskId) failed to start: \(error)")
+                AppLogger.error("Task \(taskId) failed to start: \(error)")
                 // 启动失败时，任务状态会变为 failed，由状态订阅回调处理槽位释放
             }
         }
@@ -227,7 +227,7 @@ actor DownloadQueueManager {
         // 取出等待队列中的第一个任务（已按优先级排序）
         let nextEntry = pendingQueue.removeFirst()
         let nextTaskId = nextEntry.taskId
-        Logger.info("Processing next pending task: \(nextTaskId). Remaining in queue: \(pendingQueue.count)")
+        AppLogger.info("Processing next pending task: \(nextTaskId). Remaining in queue: \(pendingQueue.count)")
 
         startTask(taskId: nextTaskId)
     }

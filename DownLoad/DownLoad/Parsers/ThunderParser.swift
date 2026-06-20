@@ -58,7 +58,7 @@ class ThunderParser {
             throw DownloadError.thunderProtocolError
         }
 
-        Logger.info("Thunder URL decoded: \(realURLString)")
+        AppLogger.info("Thunder URL decoded: \(realURLString)")
 
         // 5. 检查解码后是否为磁力链接
         let isMagnet = realURLString.lowercased().hasPrefix("magnet:")
@@ -81,7 +81,7 @@ class ThunderParser {
             throw DownloadError.thunderProtocolError
         }
 
-        Logger.info("ThunderP2P URL decoded: \(decodedString)")
+        AppLogger.info("ThunderP2P URL decoded: \(decodedString)")
 
         let lowerDecoded = decodedString.lowercased()
 
@@ -99,13 +99,13 @@ class ThunderParser {
             guard let url = URL(string: realURLString) else {
                 throw DownloadError.thunderProtocolError
             }
-            Logger.info("ThunderP2P decoded to real URL: \(realURLString)")
+            AppLogger.info("ThunderP2P decoded to real URL: \(realURLString)")
             return ParseResult(url: url, isMagnetLink: false, isP2P: true)
         }
 
         // 情况 C：解码后是直接的 URL（无 AA/ZZ 包装）
         if let url = URL(string: decodedString), url.scheme != nil {
-            Logger.info("ThunderP2P decoded to direct URL: \(decodedString)")
+            AppLogger.info("ThunderP2P decoded to direct URL: \(decodedString)")
             return ParseResult(url: url, isMagnetLink: false, isP2P: true)
         }
 

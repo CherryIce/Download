@@ -184,7 +184,7 @@ extension BackgroundDownloadSession: URLSessionDownloadDelegate {
         }
 
         guard let taskId = resolvedTaskId else {
-            Logger.warning("BackgroundDownloadSession: didFinishDownloadingTo but no taskId found for task \(downloadTask.taskIdentifier)")
+            AppLogger.warning("BackgroundDownloadSession: didFinishDownloadingTo but no taskId found for task \(downloadTask.taskIdentifier)")
             return
         }
 

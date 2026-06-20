@@ -87,7 +87,7 @@ class VideoPlayerViewController: UIViewController {
 
     // MARK: - Actions
     @objc private func playerDidFinishPlaying() {
-        Logger.info("视频播放完成: \(videoURL.lastPathComponent)")
+        AppLogger.info("视频播放完成: \(videoURL.lastPathComponent)")
         // 播放完成后自动退出
         dismiss(animated: true)
     }
@@ -107,7 +107,7 @@ class VideoPlayerViewController: UIViewController {
                 case .failed:
                     self?.handlePlaybackError(playerItem.error)
                 case .readyToPlay:
-                    Logger.info("视频准备就绪，开始播放: \(self?.videoURL.lastPathComponent ?? "")")
+                    AppLogger.info("视频准备就绪，开始播放: \(self?.videoURL.lastPathComponent ?? "")")
                 case .unknown:
                     break
                 @unknown default:
@@ -126,7 +126,7 @@ class VideoPlayerViewController: UIViewController {
             errorMessage = "无法播放该视频文件，格式可能不受支持或文件已损坏"
         }
 
-        Logger.error(errorMessage)
+        AppLogger.error(errorMessage)
 
         let alert = UIAlertController(
             title: "播放失败",

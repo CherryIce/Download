@@ -159,7 +159,7 @@ class DownloadNotifier {
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                Logger.error("Failed to send local notification: \(error)")
+                AppLogger.error("Failed to send local notification: \(error)")
             }
         }
     }
