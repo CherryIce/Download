@@ -5,6 +5,7 @@
 
 import UIKit
 import QuickLook
+import AVKit
 
 /// 已完成文件详情页面
 class CompletedFileDetailViewController: UIViewController {
@@ -42,6 +43,7 @@ class CompletedFileDetailViewController: UIViewController {
     ]
 
     private let actionRows: [(title: String, icon: String)] = [
+        ("播放视频", "play.circle"),
         ("预览文件", "eye"),
         ("分享文件", "square.and.arrow.up"),
         ("删除文件", "trash")
@@ -77,6 +79,12 @@ class CompletedFileDetailViewController: UIViewController {
     }
 
     // MARK: - Actions
+    private func playVideo() {
+        let playerVC = VideoPlayerViewController(videoURL: item.fileURL)
+        playerVC.modalPresentationStyle = .fullScreen
+        present(playerVC, animated: true)
+    }
+
     private func previewFile() {
         let previewController = QLPreviewController()
         previewController.dataSource = self
@@ -226,10 +234,12 @@ extension CompletedFileDetailViewController: UITableViewDelegate {
 
         switch indexPath.row {
         case 0:
-            previewFile()
+            playVideo()
         case 1:
-            shareFile()
+            previewFile()
         case 2:
+            shareFile()
+        case 3:
             deleteFile()
         default:
             break

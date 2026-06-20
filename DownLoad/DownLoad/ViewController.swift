@@ -7,6 +7,7 @@
 
 import UIKit
 import Combine
+import AVKit
 
 class ViewController: UIViewController {
 
@@ -78,6 +79,17 @@ class ViewController: UIViewController {
         return button
     }()
 
+    private let playButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Play", for: .normal)
+        button.backgroundColor = .systemPurple
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 8
+        button.isHidden = true  // 默认隐藏，仅在下载完成时显示
+        return button
+    }()
+
     private let stackView: UIStackView = {
         let sv = UIStackView()
         sv.translatesAutoresizingMaskIntoConstraints = false
@@ -104,6 +116,7 @@ class ViewController: UIViewController {
         stackView.addArrangedSubview(pauseButton)
         stackView.addArrangedSubview(cancelButton)
         stackView.addArrangedSubview(retryButton)
+        stackView.addArrangedSubview(playButton)
 
         // Setup constraints
         NSLayoutConstraint.activate([
@@ -128,6 +141,7 @@ class ViewController: UIViewController {
         pauseButton.addTarget(self, action: #selector(pauseDownload), for: .touchUpInside)
         cancelButton.addTarget(self, action: #selector(cancelDownload), for: .touchUpInside)
         retryButton.addTarget(self, action: #selector(retryDownload), for: .touchUpInside)
+        playButton.addTarget(self, action: #selector(playDownloadedVideo), for: .touchUpInside)
 
         // Keyboard dismiss
         urlTextField.delegate = self
@@ -177,12 +191,16 @@ class ViewController: UIViewController {
                         case .completed:
                             let path = self?.currentTask?.completedURL?.path ?? "unknown"
                             self?.log("下载完成: \(path)")
+                            self?.playButton.isHidden = false
                         case .failed:
                             self?.log("下载失败")
+                            self?.playButton.isHidden = true
                         case .cancelled:
                             self?.log("下载已取消")
                             self?.retryButton.isHidden = true
+                            self?.playButton.isHidden = true
                         default:
+                            self?.playButton.isHidden = true
                             break
                         }
                     }
@@ -241,6 +259,17 @@ class ViewController: UIViewController {
                 log("Retry failed: \(error.localizedDescription)")
             }
         }
+    }
+
+    @objc private func playDownloadedVideo() {
+        guard let completedURL = currentTask?.completedURL else {
+            log("No completed file to play")
+            return
+        }
+
+        let playerVC = VideoPlayerViewController(videoURL: completedURL)
+        playerVC.modalPresentationStyle = .fullScreen
+        present(playerVC, animated: true)
     }
 
     private func log(_ message: String) {

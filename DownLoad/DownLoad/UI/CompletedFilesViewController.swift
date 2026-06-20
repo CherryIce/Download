@@ -6,6 +6,7 @@
 import UIKit
 import Combine
 import QuickLook
+import AVKit
 
 /// 已完成文件管理页面
 class CompletedFilesViewController: UIViewController {
@@ -317,6 +318,13 @@ class CompletedFilesViewController: UIViewController {
         navigationController?.pushViewController(previewController, animated: true)
     }
 
+    private func playVideo(at indexPath: IndexPath) {
+        let item = currentItems[indexPath.row]
+        let playerVC = VideoPlayerViewController(videoURL: item.fileURL)
+        playerVC.modalPresentationStyle = .fullScreen
+        present(playerVC, animated: true)
+    }
+
     private func showFileDetail(_ item: CompletedFileItem) {
         let detailVC = CompletedFileDetailViewController(item: item)
         navigationController?.pushViewController(detailVC, animated: true)
@@ -412,8 +420,7 @@ extension CompletedFilesViewController: UITableViewDataSource {
 extension CompletedFilesViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let item = currentItems[indexPath.row]
-        previewFile(at: indexPath)
+        playVideo(at: indexPath)
     }
 
     // 滑动删除
@@ -439,6 +446,9 @@ extension CompletedFilesViewController: UITableViewDelegate {
         return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
             guard let self = self else { return nil }
 
+            let play = UIAction(title: "播放", image: UIImage(systemName: "play.circle")) { _ in
+                self.playVideo(at: indexPath)
+            }
             let preview = UIAction(title: "预览", image: UIImage(systemName: "eye")) { _ in
                 self.previewFile(at: indexPath)
             }
@@ -453,7 +463,7 @@ extension CompletedFilesViewController: UITableViewDelegate {
                 self.deleteFile(at: indexPath)
             }
 
-            return UIMenu(children: [preview, share, detail, UIMenu(title: "", options: .displayInline, children: [delete])])
+            return UIMenu(children: [play, preview, share, detail, UIMenu(title: "", options: .displayInline, children: [delete])])
         }
     }
 }
