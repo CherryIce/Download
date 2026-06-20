@@ -518,8 +518,8 @@ class VideoDownloadEngine {
                         Logger.error("Failed to restore M3U8 task \(item.id): \(error)")
                         continue
                     }
-                case .thunder:
-                    Logger.warning("Thunder task restoration not fully supported yet, skipping: \(item.id)")
+                case .thunder, .thunderP2P, .magnet:
+                    Logger.warning("Thunder/P2P/Magnet task restoration not fully supported, skipping: \(item.id)")
                     continue
                 }
 
@@ -647,7 +647,7 @@ class VideoDownloadEngine {
             return MP4DownloadHandler(networkClient: networkClient, storageManager: storageManager)
         case .m3u8:
             return M3U8DownloadHandler(networkClient: networkClient, storageManager: storageManager)
-        case .thunder:
+        case .thunder, .thunderP2P, .magnet:
             return ThunderDownloadHandler(networkClient: networkClient, storageManager: storageManager)
         }
     }

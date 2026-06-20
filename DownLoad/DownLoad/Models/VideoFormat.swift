@@ -12,6 +12,8 @@ enum VideoFormat: String, Codable {
     case mp4 = "mp4"
     case m3u8 = "m3u8"
     case thunder = "thunder"
+    case thunderP2P = "thunderP2P"
+    case magnet = "magnet"
     case webm = "webm"
     case mkv = "mkv"
     case flv = "flv"
@@ -23,6 +25,8 @@ enum VideoFormat: String, Codable {
             return "mp4"
         case .m3u8, .thunder:
             return "mp4" // m3u8下载后转换为mp4
+        case .thunderP2P, .magnet:
+            return "torrent" // P2P/磁力链接占位扩展名
         case .webm:
             return "webm"
         case .mkv:
@@ -44,7 +48,7 @@ enum VideoFormat: String, Codable {
         switch self {
         case .mp4, .webm, .mkv, .flv, .mov:
             return true
-        case .m3u8, .thunder:
+        case .m3u8, .thunder, .thunderP2P, .magnet:
             return false
         }
     }

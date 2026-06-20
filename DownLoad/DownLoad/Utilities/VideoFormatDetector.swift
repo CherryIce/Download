@@ -68,6 +68,16 @@ struct VideoFormatDetector {
             return .thunder
         }
 
+        // 迅雷 P2P 协议
+        if lowercased.hasPrefix("thunderp2p://") {
+            return .thunderP2P
+        }
+
+        // 磁力链接
+        if lowercased.hasPrefix("magnet:?") || lowercased.hasPrefix("magnet:") {
+            return .magnet
+        }
+
         // 从 URL 路径中提取文件扩展名
         // 使用 URL.pathExtension 自动去除查询参数和片段
         guard let urlObj = URL(string: url) else {

@@ -21,6 +21,8 @@ enum DownloadError: Error, LocalizedError {
     case liveStreamNotSupported
     case keyFormatNotSupported(format: String)
     case byteRangeRequestFailed(url: String)
+    case p2pDownloadNotSupported(protocolType: String)
+    case magnetLinkNotSupported
 
     var errorDescription: String? {
         switch self {
@@ -50,6 +52,10 @@ enum DownloadError: Error, LocalizedError {
             return "Key format '\(format)' is not supported"
         case .byteRangeRequestFailed(let url):
             return "Byte range request failed for URL: \(url)"
+        case .p2pDownloadNotSupported(let protocolType):
+            return "\(protocolType) 协议需要迅雷客户端或 BT 客户端支持，本应用暂不支持 P2P 下载"
+        case .magnetLinkNotSupported:
+            return "磁力链接需要迅雷客户端或 BT 客户端支持，本应用暂不支持磁力链接下载"
         }
     }
 }
