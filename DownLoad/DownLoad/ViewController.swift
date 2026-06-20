@@ -18,7 +18,7 @@ class ViewController: UIViewController {
     private let urlTextField: UITextField = {
         let tf = UITextField()
         tf.translatesAutoresizingMaskIntoConstraints = false
-        tf.placeholder = "请输入下载URL"
+        tf.placeholder = Strings.Placeholder.urlInput
         tf.borderStyle = .roundedRect
         tf.autocorrectionType = .no
         tf.autocapitalizationType = .none
@@ -41,7 +41,7 @@ class ViewController: UIViewController {
     private let downloadButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("Start Download", for: .normal)
+        button.setTitle(Strings.Button.startDownload, for: .normal)
         button.backgroundColor = .systemBlue
         button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = 8
@@ -51,7 +51,7 @@ class ViewController: UIViewController {
     private let pauseButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("Pause", for: .normal)
+        button.setTitle(Strings.Button.pause, for: .normal)
         button.backgroundColor = .systemOrange
         button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = 8
@@ -61,7 +61,7 @@ class ViewController: UIViewController {
     private let cancelButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("Cancel", for: .normal)
+        button.setTitle(Strings.Button.cancel, for: .normal)
         button.backgroundColor = .systemRed
         button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = 8
@@ -71,7 +71,7 @@ class ViewController: UIViewController {
     private let retryButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("Retry", for: .normal)
+        button.setTitle(Strings.Button.retry, for: .normal)
         button.backgroundColor = .systemGreen
         button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = 8
@@ -82,7 +82,7 @@ class ViewController: UIViewController {
     private let playButton: UIButton = {
         let button = UIButton(type: .system)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.setTitle("Play", for: .normal)
+        button.setTitle(Strings.Button.play, for: .normal)
         button.backgroundColor = .systemPurple
         button.setTitleColor(.white, for: .normal)
         button.layer.cornerRadius = 8

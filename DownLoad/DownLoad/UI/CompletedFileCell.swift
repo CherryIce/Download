@@ -124,7 +124,7 @@ class CompletedFileCell: UITableViewCell {
         sizeLabel.text = item.formattedFileSize
 
         let ext = item.fileExtension
-        formatTagLabel.text = ext.isEmpty ? "FILE" : ext
+        formatTagLabel.text = ext.isEmpty ? Strings.Label.file : ext
 
         dateLabel.text = item.formattedCompletedAt ?? ""
     }

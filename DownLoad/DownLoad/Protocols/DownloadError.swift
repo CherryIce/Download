@@ -27,31 +27,31 @@ enum DownloadError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL(let url):
-            return "Invalid URL: \(url)"
+            return "URL 无效：\(url)"
         case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
+            return "网络错误：\(error.localizedDescription)"
         case .parseError(let message):
-            return "Parse error: \(message)"
+            return "解析错误：\(message)"
         case .fileSystemError(let error):
-            return "File system error: \(error.localizedDescription)"
+            return "文件系统错误：\(error.localizedDescription)"
         case .insufficientStorage(let required, let available):
-            return "Insufficient storage. Required: \(ByteCountFormatter.string(fromByteCount: required, countStyle: .file)), Available: \(ByteCountFormatter.string(fromByteCount: available, countStyle: .file))"
+            return "存储空间不足。需要：\(ByteCountFormatter.string(fromByteCount: required, countStyle: .file))，可用：\(ByteCountFormatter.string(fromByteCount: available, countStyle: .file))"
         case .taskCancelled:
-            return "Download task cancelled"
+            return "下载任务已取消"
         case .taskFailed(let error):
-            return "Download task failed: \(error.localizedDescription)"
+            return "下载任务失败：\(error.localizedDescription)"
         case .encryptionNotSupported:
-            return "Encryption method not supported"
+            return "不支持的加密方式"
         case .invalidM3U8Format:
-            return "Invalid M3U8 format"
+            return "M3U8 格式无效"
         case .thunderProtocolError:
-            return "Invalid thunder protocol format"
+            return "迅雷协议格式无效"
         case .liveStreamNotSupported:
-            return "Live HLS streams are not currently supported for download"
+            return "暂不支持下载直播 HLS 流"
         case .keyFormatNotSupported(let format):
-            return "Key format '\(format)' is not supported"
+            return "不支持的密钥格式：\(format)"
         case .byteRangeRequestFailed(let url):
-            return "Byte range request failed for URL: \(url)"
+            return "字节范围请求失败，URL：\(url)"
         case .p2pDownloadNotSupported(let protocolType):
             return "\(protocolType) 协议需要迅雷客户端或 BT 客户端支持，本应用暂不支持 P2P 下载"
         case .magnetLinkNotSupported:

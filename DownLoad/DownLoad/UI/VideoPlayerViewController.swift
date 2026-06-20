@@ -121,7 +121,7 @@ class VideoPlayerViewController: UIViewController {
     private func handlePlaybackError(_ error: Error?) {
         let errorMessage: String
         if let error = error {
-            errorMessage = "播放失败: \(error.localizedDescription)"
+            errorMessage = "播放失败：\(error.localizedDescription)"
         } else {
             errorMessage = "无法播放该视频文件，格式可能不受支持或文件已损坏"
         }

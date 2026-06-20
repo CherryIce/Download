@@ -19,19 +19,19 @@ enum NetworkError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL(let url):
-            return "Invalid URL: \(url)"
+            return "URL 无效：\(url)"
         case .noData:
-            return "No data received"
+            return "未收到数据"
         case .httpError(let statusCode):
-            return "HTTP error with status code: \(statusCode)"
+            return "HTTP 错误，状态码：\(statusCode)"
         case .connectionError(let error):
-            return "Connection error: \(error.localizedDescription)"
+            return "连接错误：\(error.localizedDescription)"
         case .timeout:
-            return "Request timeout"
+            return "请求超时"
         case .invalidResponse:
-            return "Invalid response from server"
+            return "服务器响应无效"
         case .resumeError(let underlying, _):
-            return "Download failed with resumable data: \(underlying.localizedDescription)"
+            return "下载失败（已保存可恢复数据）：\(underlying.localizedDescription)"
         }
     }
 
