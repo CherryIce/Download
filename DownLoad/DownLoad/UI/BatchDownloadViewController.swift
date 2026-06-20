@@ -349,13 +349,41 @@ class BatchDownloadViewController: UIViewController {
     }
 
     private func subscribeToTaskUpdates() {
-        // 定时刷新任务列表
-        Timer.publish(every: 2.0, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.loadBatchTasks()
+        // 监听进度更新通知，实时刷新对应 Cell
+        NotificationCenter.default.publisher(for: DownloadNotification.progressDidUpdate)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let taskId = notification.userInfo?[DownloadNotificationKey.taskId] as? UUID else {
+                    return
+                }
+                self.refreshCellIfContains(taskId: taskId)
             }
             .store(in: &cancellables)
+
+        // 监听状态变化通知
+        NotificationCenter.default.publisher(for: DownloadNotification.stateDidChange)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let taskId = notification.userInfo?[DownloadNotificationKey.taskId] as? UUID else {
+                    return
+                }
+                self.refreshCellIfContains(taskId: taskId)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshCellIfContains(taskId: UUID) {
+        for (index, batchTask) in batchTasks.enumerated() {
+            if batchTask.taskItems.contains(where: { $0.task.id == taskId }) {
+                let indexPath = IndexPath(row: index, section: 0)
+                if let cell = tableView.cellForRow(at: indexPath) as? BatchDownloadCell {
+                    cell.configure(with: batchTask)
+                }
+                break
+            }
+        }
     }
 
     private func updateSelectionBar() {
@@ -394,6 +422,7 @@ extension BatchDownloadViewController: UITableViewDataSource, UITableViewDelegat
         let cell = tableView.dequeueReusableCell(withIdentifier: "BatchDownloadCell", for: indexPath) as! BatchDownloadCell
         let batchTask = batchTasks[indexPath.row]
         cell.configure(with: batchTask)
+        cell.delegate = self
 
         // 添加分隔线
         if indexPath.row < batchTasks.count - 1 {
@@ -469,7 +498,48 @@ extension BatchDownloadViewController: UITableViewDataSource, UITableViewDelegat
     }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 100
+        return 140
+    }
+}
+
+// MARK: - BatchDownloadCellDelegate
+extension BatchDownloadViewController: BatchDownloadCellDelegate {
+    func batchDownloadCell(_ cell: BatchDownloadCell, didTapPause batchId: UUID) {
+        Task {
+            await batchManager.pauseBatchDownload(batchId: batchId)
+            await loadBatchTasks()
+        }
+    }
+
+    func batchDownloadCell(_ cell: BatchDownloadCell, didTapResume batchId: UUID) {
+        Task {
+            do {
+                try await batchManager.startBatchDownload(batchId: batchId)
+                await loadBatchTasks()
+            } catch {
+                showAlert(title: "恢复失败", message: error.localizedDescription)
+            }
+        }
+    }
+
+    func batchDownloadCell(_ cell: BatchDownloadCell, didTapRetry batchId: UUID) {
+        retryFailedItems(batchId: batchId)
+    }
+
+    func batchDownloadCell(_ cell: BatchDownloadCell, didTapCancel batchId: UUID) {
+        let alertController = UIAlertController(
+            title: "确认取消",
+            message: "确定要取消该批量下载任务吗？",
+            preferredStyle: .alert
+        )
+        alertController.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alertController.addAction(UIAlertAction(title: "确定", style: .destructive) { [weak self] _ in
+            Task {
+                await self?.batchManager.cancelBatchDownload(batchId: batchId)
+                await self?.loadBatchTasks()
+            }
+        })
+        present(alertController, animated: true)
     }
 }
 

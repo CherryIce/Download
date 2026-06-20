@@ -14,6 +14,20 @@ class ViewController: UIViewController {
     private var cancellables = Set<AnyCancellable>()
     private var currentTask: (any DownloadTask)?
 
+    private let urlTextField: UITextField = {
+        let tf = UITextField()
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.placeholder = "请输入下载URL"
+        tf.borderStyle = .roundedRect
+        tf.autocorrectionType = .no
+        tf.autocapitalizationType = .none
+        tf.keyboardType = .URL
+        tf.returnKeyType = .done
+        tf.clearButtonMode = .whileEditing
+        tf.text = "https://example.com/sample.mp4"
+        return tf
+    }()
+
     private let textView: UITextView = {
         let tv = UITextView()
         tv.translatesAutoresizingMaskIntoConstraints = false
@@ -71,6 +85,7 @@ class ViewController: UIViewController {
         view.backgroundColor = .systemBackground
 
         // Add subviews
+        view.addSubview(urlTextField)
         view.addSubview(textView)
         view.addSubview(stackView)
 
@@ -80,7 +95,12 @@ class ViewController: UIViewController {
 
         // Setup constraints
         NSLayoutConstraint.activate([
-            textView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            urlTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            urlTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            urlTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            urlTextField.heightAnchor.constraint(equalToConstant: 44),
+
+            textView.topAnchor.constraint(equalTo: urlTextField.bottomAnchor, constant: 12),
             textView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             textView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             textView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.5),
@@ -95,34 +115,27 @@ class ViewController: UIViewController {
         downloadButton.addTarget(self, action: #selector(startDownload), for: .touchUpInside)
         pauseButton.addTarget(self, action: #selector(pauseDownload), for: .touchUpInside)
         cancelButton.addTarget(self, action: #selector(cancelDownload), for: .touchUpInside)
+
+        // Keyboard dismiss
+        urlTextField.delegate = self
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        view.addGestureRecognizer(tapGesture)
     }
 
     @objc private func startDownload() {
-        log("Starting download...")
+        guard let urlString = urlTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !urlString.isEmpty,
+              URL(string: urlString) != nil else {
+            log("请输入有效的URL")
+            return
+        }
+
+        log("Starting download: \(urlString)")
 
         Task {
             do {
-                // 示例1: 下载MP4
-                // let task = try await downloadEngine.createDownloadTask(
-                //     url: "https://example.com/video.mp4",
-                //     fileName: "my_video.mp4"
-                // )
-
-                // 示例2: 下载M3U8
-                // let task = try await downloadEngine.createDownloadTask(
-                //     url: "https://example.com/video.m3u8",
-                //     fileName: "my_hls_video.mp4"
-                // )
-
-                // 示例3: 下载迅雷链接
-                // let task = try await downloadEngine.createDownloadTask(
-                //     url: "thunder://QUFodHRwOi8vZXhhbXBsZS5jb20vdmlkZW8ubXA0Wlo=",
-                //     fileName: "thunder_video.mp4"
-                // )
-
-                // 使用示例URL（实际使用时替换为真实URL）
                 let task = try await downloadEngine.createDownloadTask(
-                    url: "https://example.com/sample.mp4",
+                    url: urlString,
                     fileName: "sample_video.mp4"
                 )
 
@@ -142,16 +155,16 @@ class ViewController: UIViewController {
                 task.state
                     .receive(on: DispatchQueue.main)
                     .sink { [weak self] state in
-                        self?.log("State: \(state.rawValue)")
+                        self?.log("State: \(state.displayText)")
 
                         switch state {
                         case .completed:
                             let path = self?.currentTask?.completedURL?.path ?? "unknown"
-                            self?.log("✅ Download completed: \(path)")
+                            self?.log("下载完成: \(path)")
                         case .failed:
-                            self?.log("❌ Download failed")
+                            self?.log("下载失败")
                         case .cancelled:
-                            self?.log("⚠️ Download cancelled")
+                            self?.log("下载已取消")
                         default:
                             break
                         }
@@ -162,7 +175,7 @@ class ViewController: UIViewController {
                 try await downloadEngine.startDownload(task: task)
 
             } catch {
-                log("❌ Error: \(error.localizedDescription)")
+                log("错误: \(error.localizedDescription)")
             }
         }
     }
@@ -203,6 +216,18 @@ class ViewController: UIViewController {
             let range = NSRange(location: self.textView.text.count - 1, length: 1)
             self.textView.scrollRangeToVisible(range)
         }
+    }
+}
+
+// MARK: - UITextFieldDelegate
+extension ViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
 }
 

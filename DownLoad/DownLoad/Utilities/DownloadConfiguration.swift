@@ -18,14 +18,16 @@ struct DownloadConfiguration {
     /// 是否允许蜂窝网络下载（仅对当前任务有效）
     let allowCellularDownload: Bool
 
-    static let `default` = DownloadConfiguration(
-        maxConcurrentDownloads: Constants.Network.maxConcurrentDownloads,
-        timeoutInterval: Constants.Network.timeoutInterval,
-        retryCount: Constants.Network.maxRetryCount,
-        enableBackgroundDownload: true,
-        customHeaders: [:],
-        allowCellularDownload: Constants.NetworkMonitor.defaultAllowCellularDownload
-    )
+    static var `default`: DownloadConfiguration {
+        return DownloadConfiguration(
+            maxConcurrentDownloads: SettingsViewController.getMaxConcurrentDownloads(),
+            timeoutInterval: SettingsViewController.getTimeoutInterval(),
+            retryCount: SettingsViewController.getRetryCount(),
+            enableBackgroundDownload: SettingsViewController.getEnableBackgroundDownload(),
+            customHeaders: [:],
+            allowCellularDownload: SettingsViewController.getAllowCellularDownload()
+        )
+    }
 
     /// 带自定义请求头的便捷构造方法
     init(

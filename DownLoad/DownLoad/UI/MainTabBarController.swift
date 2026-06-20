@@ -15,18 +15,8 @@ class MainTabBarController: UITabBarController {
         let singleDownloadNav = UINavigationController(rootViewController: singleDownloadVC)
         singleDownloadNav.tabBarItem = UITabBarItem(
             title: "单任务下载",
-            image: UIImage(systemName: "rectangle.stack"),
+            image: UIImage(systemName: "arrow.down.circle"),
             tag: 0
-        )
-
-        // 创建视频下载管理视图控制器
-        let videoDownloadManagerVC = BatchDownloadViewController()
-        videoDownloadManagerVC.title = "下载管理"
-        let videoDownloadManagerNav = UINavigationController(rootViewController: videoDownloadManagerVC)
-        videoDownloadManagerNav.tabBarItem = UITabBarItem(
-            title: "下载管理",
-            image: UIImage(systemName: "list.bullet"),
-            tag: 1
         )
 
         // 创建批量下载视图控制器
@@ -36,11 +26,21 @@ class MainTabBarController: UITabBarController {
         batchDownloadNav.tabBarItem = UITabBarItem(
             title: "批量下载",
             image: UIImage(systemName: "rectangle.stack"),
+            tag: 1
+        )
+
+        // 创建设置视图控制器
+        let settingsVC = SettingsViewController()
+        settingsVC.title = "设置"
+        let settingsNav = UINavigationController(rootViewController: settingsVC)
+        settingsNav.tabBarItem = UITabBarItem(
+            title: "设置",
+            image: UIImage(systemName: "gear"),
             tag: 2
         )
 
         // 设置视图控制器数组
-        let viewControllers = [singleDownloadNav, videoDownloadManagerNav, batchDownloadNav]
+        let viewControllers = [singleDownloadNav, batchDownloadNav, settingsNav]
 
         // 设置标签栏控制器
         self.viewControllers = viewControllers
