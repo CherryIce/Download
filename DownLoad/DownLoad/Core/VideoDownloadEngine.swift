@@ -30,7 +30,7 @@ class VideoDownloadEngine {
     private var networkLostWorkItem: DispatchWorkItem?
 
     private init() {
-        self.queueManager = DownloadQueueManager()
+        self.queueManager = DownloadQueueManager(maxConcurrentTasks: SettingsViewController.getMaxConcurrentDownloads())
         self.storageManager = FileStorageManager()
         self.networkClient = NetworkClient()
         do {

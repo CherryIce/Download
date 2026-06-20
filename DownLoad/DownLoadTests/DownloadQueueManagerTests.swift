@@ -22,6 +22,7 @@ class MockDownloadTask: DownloadTask {
     let progress: CurrentValueSubject<DownloadProgress, Never>
     var completedURL: URL?
     var pauseReason: PauseReason?
+    var priority: DownloadPriority
 
     let format: VideoFormat = .mp4
     var totalSize: Int64?
@@ -38,6 +39,7 @@ class MockDownloadTask: DownloadTask {
         url: String = "https://example.com/test.mp4",
         fileName: String = "test.mp4",
         shouldFail: Bool = false,
+        priority: DownloadPriority = .normal,
         delay: TimeInterval = 0.1
     ) {
         self.id = id
@@ -48,6 +50,7 @@ class MockDownloadTask: DownloadTask {
         self.progress = CurrentValueSubject<DownloadProgress, Never>(.empty)
         self.completedURL = nil
         self.shouldFail = shouldFail
+        self.priority = priority
         self.delay = delay
     }
     
@@ -86,8 +89,8 @@ struct DownloadQueueManagerTests {
     
     // MARK: - Helper
     
-    private func createQueueManager() -> DownloadQueueManager {
-        return DownloadQueueManager()
+    private func createQueueManager(maxConcurrent: Int = Constants.Network.maxConcurrentDownloads) -> DownloadQueueManager {
+        return DownloadQueueManager(maxConcurrentTasks: maxConcurrent)
     }
     
     private func createMockTasks(count: Int) -> [MockDownloadTask] {
@@ -157,8 +160,9 @@ struct DownloadQueueManagerTests {
     
     @Test("添加不超过最大并发数的任务应立即运行")
     func testAddTaskUnderLimitStartsImmediately() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
-        let tasks = createMockTasks(count: 3)
+        let tasks = createMockTasks(count: maxConcurrent)
         
         for task in tasks {
             await queueManager.addTask(task)
@@ -170,14 +174,15 @@ struct DownloadQueueManagerTests {
         let runningCount = await queueManager.runningTaskCount()
         let pendingCount = await queueManager.pendingTaskCount()
         
-        #expect(runningCount == 3, "应有3个任务在运行")
+        #expect(runningCount == maxConcurrent, "应有\(maxConcurrent)个任务在运行")
         #expect(pendingCount == 0, "等待队列应为空")
     }
     
     @Test("添加超过最大并发数的任务应进入等待队列")
     func testAddTaskOverLimitQueuesPending() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
-        let tasks = createMockTasks(count: 5)
+        let tasks = createMockTasks(count: maxConcurrent + 2)
         
         for task in tasks {
             await queueManager.addTask(task)
@@ -189,12 +194,13 @@ struct DownloadQueueManagerTests {
         let runningCount = await queueManager.runningTaskCount()
         let pendingCount = await queueManager.pendingTaskCount()
         
-        #expect(runningCount == 3, "应有3个任务在运行")
+        #expect(runningCount == maxConcurrent, "应有\(maxConcurrent)个任务在运行")
         #expect(pendingCount == 2, "应有2个任务在等待")
     }
     
     @Test("并发数始终不超过上限")
     func testConcurrentLimitNeverExceeded() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
         let tasks = createMockTasks(count: 10)
         
@@ -207,15 +213,16 @@ struct DownloadQueueManagerTests {
         
         let runningCount = await queueManager.runningTaskCount()
         
-        #expect(runningCount <= 3, "运行任务数不应超过上限3")
+        #expect(runningCount <= maxConcurrent, "运行任务数不应超过上限\(maxConcurrent)")
     }
     
     // MARK: - 自动调度测试
     
     @Test("任务完成后应自动调度等待队列中的任务")
     func testTaskCompletionTriggersNextPending() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
-        let tasks = createMockTasks(count: 4)
+        let tasks = createMockTasks(count: maxConcurrent + 1)
         
         for task in tasks {
             await queueManager.addTask(task)
@@ -227,7 +234,7 @@ struct DownloadQueueManagerTests {
         // 验证初始状态
         let initialRunningCount = await queueManager.runningTaskCount()
         let initialPendingCount = await queueManager.pendingTaskCount()
-        #expect(initialRunningCount == 3)
+        #expect(initialRunningCount == maxConcurrent)
         #expect(initialPendingCount == 1)
         
         // 等待第一个任务完成（模拟任务会在0.2秒后完成）
@@ -237,14 +244,15 @@ struct DownloadQueueManagerTests {
         let finalRunningCount = await queueManager.runningTaskCount()
         let finalPendingCount = await queueManager.pendingTaskCount()
         
-        #expect(finalRunningCount <= 3, "运行任务数不应超过上限")
+        #expect(finalRunningCount <= maxConcurrent, "运行任务数不应超过上限")
         #expect(finalPendingCount == 0, "等待队列应为空")
     }
     
     @Test("任务暂停后应自动调度等待队列中的任务")
     func testTaskPauseTriggersNextPending() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
-        let tasks = createMockTasks(count: 4)
+        let tasks = createMockTasks(count: maxConcurrent + 1)
         
         for task in tasks {
             await queueManager.addTask(task)
@@ -256,7 +264,7 @@ struct DownloadQueueManagerTests {
         // 验证初始状态
         let initialRunningCount = await queueManager.runningTaskCount()
         let initialPendingCount = await queueManager.pendingTaskCount()
-        #expect(initialRunningCount == 3)
+        #expect(initialRunningCount == maxConcurrent)
         #expect(initialPendingCount == 1)
         
         // 暂停第一个运行的任务
@@ -269,14 +277,15 @@ struct DownloadQueueManagerTests {
         let finalRunningCount = await queueManager.runningTaskCount()
         let finalPendingCount = await queueManager.pendingTaskCount()
         
-        #expect(finalRunningCount <= 3, "运行任务数不应超过上限")
+        #expect(finalRunningCount <= maxConcurrent, "运行任务数不应超过上限")
         #expect(finalPendingCount == 0, "等待队列应为空")
     }
     
     @Test("任务取消后应自动调度等待队列中的任务")
     func testTaskCancelTriggersNextPending() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
-        let tasks = createMockTasks(count: 4)
+        let tasks = createMockTasks(count: maxConcurrent + 1)
         
         for task in tasks {
             await queueManager.addTask(task)
@@ -288,7 +297,7 @@ struct DownloadQueueManagerTests {
         // 验证初始状态
         let initialRunningCount = await queueManager.runningTaskCount()
         let initialPendingCount = await queueManager.pendingTaskCount()
-        #expect(initialRunningCount == 3)
+        #expect(initialRunningCount == maxConcurrent)
         #expect(initialPendingCount == 1)
         
         // 取消第一个运行的任务
@@ -301,17 +310,18 @@ struct DownloadQueueManagerTests {
         let finalRunningCount = await queueManager.runningTaskCount()
         let finalPendingCount = await queueManager.pendingTaskCount()
         
-        #expect(finalRunningCount <= 3, "运行任务数不应超过上限")
+        #expect(finalRunningCount <= maxConcurrent, "运行任务数不应超过上限")
         #expect(finalPendingCount == 0, "等待队列应为空")
     }
     
     @Test("任务失败后应自动调度等待队列中的任务")
     func testTaskFailureTriggersNextPending() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
         
-        // 创建3个正常任务和1个会失败的任务
+        // 创建maxConcurrent个正常任务和1个会失败的任务
         let failingTask = MockDownloadTask(shouldFail: true, delay: 0.1)
-        let normalTasks = createMockTasks(count: 3)
+        let normalTasks = createMockTasks(count: maxConcurrent)
         
         // 先添加会失败的任务，再添加正常任务
         await queueManager.addTask(failingTask)
@@ -325,7 +335,7 @@ struct DownloadQueueManagerTests {
         // 验证初始状态
         let initialRunningCount = await queueManager.runningTaskCount()
         let initialPendingCount = await queueManager.pendingTaskCount()
-        #expect(initialRunningCount == 3)
+        #expect(initialRunningCount == maxConcurrent)
         #expect(initialPendingCount == 1)
         
         // 等待失败任务完成（会在0.1秒后失败）
@@ -335,7 +345,7 @@ struct DownloadQueueManagerTests {
         let finalRunningCount = await queueManager.runningTaskCount()
         let finalPendingCount = await queueManager.pendingTaskCount()
         
-        #expect(finalRunningCount <= 3, "运行任务数不应超过上限")
+        #expect(finalRunningCount <= maxConcurrent, "运行任务数不应超过上限")
         #expect(finalPendingCount == 0, "等待队列应为空")
     }
     
@@ -343,8 +353,9 @@ struct DownloadQueueManagerTests {
     
     @Test("移除等待队列中的任务不会触发调度")
     func testRemovePendingTaskDoesNotTriggerSchedule() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
-        let tasks = createMockTasks(count: 5)
+        let tasks = createMockTasks(count: maxConcurrent + 2)
         
         for task in tasks {
             await queueManager.addTask(task)
@@ -353,16 +364,16 @@ struct DownloadQueueManagerTests {
         // 等待初始调度完成
         try await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
         
-        // 移除一个等待队列中的任务（第5个任务）
-        await queueManager.removeTask(tasks[4].id)
+        // 移除一个等待队列中的任务（最后一个任务）
+        await queueManager.removeTask(tasks[maxConcurrent + 1].id)
         
         let runningCount = await queueManager.runningTaskCount()
         let pendingCount = await queueManager.pendingTaskCount()
         let taskCount = await queueManager.taskCount()
         
-        #expect(runningCount == 3, "运行任务数应保持3")
+        #expect(runningCount == maxConcurrent, "运行任务数应保持\(maxConcurrent)")
         #expect(pendingCount == 1, "等待队列应剩1个")
-        #expect(taskCount == 4, "总任务数应为4")
+        #expect(taskCount == maxConcurrent + 1, "总任务数应为\(maxConcurrent + 1)")
     }
     
     @Test("空队列添加任务应立即启动")
@@ -384,6 +395,7 @@ struct DownloadQueueManagerTests {
     
     @Test("大量任务添加后并发数始终受控")
     func testMassiveTasksConcurrentLimit() async throws {
+        let maxConcurrent = Constants.Network.maxConcurrentDownloads
         let queueManager = createQueueManager()
         let tasks = createMockTasks(count: 20)
         
@@ -397,7 +409,104 @@ struct DownloadQueueManagerTests {
         let runningCount = await queueManager.runningTaskCount()
         let pendingCount = await queueManager.pendingTaskCount()
         
-        #expect(runningCount == 3, "应有3个任务在运行")
-        #expect(pendingCount == 17, "应有17个任务在等待")
+        #expect(runningCount == maxConcurrent, "应有\(maxConcurrent)个任务在运行")
+        #expect(pendingCount == 20 - maxConcurrent, "应有\(20 - maxConcurrent)个任务在等待")
+    }
+}
+
+// MARK: - 优先级测试
+
+@Suite("DownloadQueueManager 优先级测试")
+struct DownloadQueueManagerPriorityTests {
+
+    private func createQueueManager(maxConcurrent: Int = 2) -> DownloadQueueManager {
+        return DownloadQueueManager(maxConcurrentTasks: maxConcurrent)
+    }
+
+    @Test("高优先级任务应先于低优先级任务运行")
+    func testHighPriorityTaskRunsBeforeLow() async throws {
+        let queueManager = createQueueManager(maxConcurrent: 1)
+
+        let highTask = MockDownloadTask(priority: .high, delay: 0.3)
+        let lowTask = MockDownloadTask(priority: .low, delay: 0.3)
+
+        // 先添加低优先级
+        await queueManager.addTask(lowTask)
+        try await Task.sleep(nanoseconds: 50_000_000) // 0.05s
+
+        // 再添加高优先级
+        await queueManager.addTask(highTask)
+        try await Task.sleep(nanoseconds: 50_000_000) // 0.05s
+
+        // 验证：高优先级应该在运行，低优先级在等待
+        let runningTasks = await queueManager.getAllTasks().filter { $0.state.value == .downloading }
+        let pendingCount = await queueManager.pendingTaskCount()
+
+        #expect(runningTasks.count == 1, "应有1个任务在运行")
+        #expect(runningTasks.first?.id == highTask.id, "高优先级任务应在运行")
+        #expect(pendingCount == 1, "应有1个任务在等待")
+    }
+
+    @Test("同优先级任务按FIFO顺序运行")
+    func testSamePriorityFIFOOrder() async throws {
+        let queueManager = createQueueManager(maxConcurrent: 1)
+
+        let task1 = MockDownloadTask(priority: .normal, delay: 0.3)
+        let task2 = MockDownloadTask(priority: .normal, delay: 0.3)
+
+        await queueManager.addTask(task1)
+        await queueManager.addTask(task2)
+
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+
+        let runningTasks = await queueManager.getAllTasks().filter { $0.state.value == .downloading }
+        let pendingCount = await queueManager.pendingTaskCount()
+
+        #expect(runningTasks.first?.id == task1.id, "先添加的任务应在运行")
+        #expect(pendingCount == 1, "应有1个任务在等待")
+    }
+
+    @Test("任务完成后应按优先级调度下一个")
+    func testPrioritySchedulingAfterCompletion() async throws {
+        let queueManager = createQueueManager(maxConcurrent: 1)
+
+        let normalTask = MockDownloadTask(priority: .normal, delay: 0.1)
+        let highTask = MockDownloadTask(priority: .high, delay: 0.1)
+        let lowTask = MockDownloadTask(priority: .low, delay: 0.1)
+
+        // 按 normal -> high -> low 顺序添加
+        await queueManager.addTask(normalTask)
+        await queueManager.addTask(highTask)
+        await queueManager.addTask(lowTask)
+
+        // 等待 normal 完成（0.1s）+ 调度时间
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3s
+
+        // 高优先级应该先被调度
+        let runningTasks = await queueManager.getAllTasks().filter { $0.state.value == .downloading }
+
+        #expect(runningTasks.first?.id == highTask.id, "高优先级任务应在 normal 完成后被调度")
+    }
+
+    @Test("移除运行中的高优先级任务后，低优先级任务应被调度")
+    func testPrioritySchedulingAfterRemoval() async throws {
+        let queueManager = createQueueManager(maxConcurrent: 1)
+
+        let highTask = MockDownloadTask(priority: .high, delay: 0.5)
+        let lowTask = MockDownloadTask(priority: .low, delay: 0.1)
+
+        await queueManager.addTask(highTask)
+        await queueManager.addTask(lowTask)
+
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+
+        // 移除高优先级任务
+        await queueManager.removeTask(highTask.id)
+
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+
+        let runningTasks = await queueManager.getAllTasks().filter { $0.state.value == .downloading }
+
+        #expect(runningTasks.first?.id == lowTask.id, "低优先级任务应在高优先级移除后被调度")
     }
 }

@@ -117,6 +117,9 @@ class M3U8DownloadTask: DownloadTask {
     /// 暂停原因（用于区分用户手动暂停和网络自动暂停）
     var pauseReason: PauseReason? = nil
 
+    /// 下载优先级
+    var priority: DownloadPriority = .normal
+
     init(
         id: UUID,
         url: String,
@@ -125,7 +128,8 @@ class M3U8DownloadTask: DownloadTask {
         fileName: String,
         configuration: DownloadConfiguration,
         networkClient: NetworkClient,
-        storageManager: FileStorageManager
+        storageManager: FileStorageManager,
+        priority: DownloadPriority = .normal
     ) {
         self.id = id
         self.url = url
@@ -142,6 +146,7 @@ class M3U8DownloadTask: DownloadTask {
         )
         self.downloadState.isFMP4 = playlist.isFMP4
         self.maxConcurrentSegments = Constants.M3U8.maxConcurrentSegmentDownloads
+        self.priority = priority
     }
 
     var stateFileURL: URL? {

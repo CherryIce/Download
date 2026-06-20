@@ -100,6 +100,9 @@ class MP4DownloadTask: DownloadTask {
     /// 暂停原因（用于区分用户手动暂停和网络自动暂停）
     var pauseReason: PauseReason? = nil
 
+    /// 下载优先级
+    var priority: DownloadPriority = .normal
+
     /// 标记下载完成（供外部如恢复场景使用）
     func markCompleted(url: URL) {
         self.completedURL = url
@@ -115,7 +118,8 @@ class MP4DownloadTask: DownloadTask {
         configuration: DownloadConfiguration,
         networkClient: NetworkClient,
         storageManager: FileStorageManager,
-        format: VideoFormat = .mp4
+        format: VideoFormat = .mp4,
+        priority: DownloadPriority = .normal
     ) {
         self.id = id
         self.url = url
@@ -124,6 +128,7 @@ class MP4DownloadTask: DownloadTask {
         self.networkClient = networkClient
         self.storageManager = storageManager
         self.format = format
+        self.priority = priority
     }
 
     func resume() async throws {

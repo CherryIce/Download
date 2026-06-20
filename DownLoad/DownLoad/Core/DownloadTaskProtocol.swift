@@ -35,6 +35,9 @@ protocol DownloadTask: AnyObject {
     /// 当前暂停原因（nil 表示未被暂停或暂停原因未知）
     var pauseReason: PauseReason? { get set }
 
+    /// 下载优先级
+    var priority: DownloadPriority { get set }
+
     func resume() async throws
     func pause() async
     func cancel() async

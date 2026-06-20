@@ -15,13 +15,23 @@ actor DownloadQueueManager {
     // MARK: - Properties
 
     private var tasks: [UUID: any DownloadTask] = [:]
-    private let maxConcurrentTasks: Int = 3
+    private let maxConcurrentTasks: Int
 
     /// 当前正在运行的任务ID集合
     private var runningTaskIds: Set<UUID> = []
 
-    /// 等待执行的任务ID队列（FIFO）
-    private var pendingQueue: [UUID] = []
+    /// 等待队列条目，包含任务ID和优先级
+    private struct PendingQueueEntry {
+        let taskId: UUID
+        let priority: DownloadPriority
+    }
+
+    /// 等待执行的任务队列（按优先级排序，高优先级在前；同优先级按FIFO）
+    private var pendingQueue: [PendingQueueEntry] = []
+
+    init(maxConcurrentTasks: Int = Constants.Network.maxConcurrentDownloads) {
+        self.maxConcurrentTasks = maxConcurrentTasks
+    }
 
     /// 任务状态订阅存储，用于监听任务状态变化
     private var taskStateCancellables: [UUID: AnyCancellable] = [:]
@@ -58,7 +68,7 @@ actor DownloadQueueManager {
 
         // 从运行集合和等待队列中移除
         runningTaskIds.remove(taskId)
-        pendingQueue.removeAll { $0 == taskId }
+        pendingQueue.removeAll { $0.taskId == taskId }
 
         tasks.removeValue(forKey: taskId)
         Logger.info("Task removed from queue: \(taskId)")
@@ -164,16 +174,30 @@ actor DownloadQueueManager {
         guard !runningTaskIds.contains(taskId) else { return }
 
         // 检查是否已经在等待队列
-        guard !pendingQueue.contains(taskId) else { return }
+        guard !pendingQueue.contains(where: { $0.taskId == taskId }) else { return }
 
         if runningTaskIds.count < maxConcurrentTasks {
             // 有空闲槽位，启动任务
             startTask(taskId: taskId)
         } else {
-            // 槽位已满，加入等待队列
-            pendingQueue.append(taskId)
-            Logger.info("Task \(taskId) queued for execution. Queue position: \(pendingQueue.count), Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
+            // 槽位已满，按优先级插入等待队列
+            let priority = tasks[taskId]?.priority ?? .normal
+            insertIntoPendingQueue(taskId: taskId, priority: priority)
         }
+    }
+
+    /// 按优先级插入等待队列（高优先级在前，同优先级FIFO）
+    private func insertIntoPendingQueue(taskId: UUID, priority: DownloadPriority) {
+        let newEntry = PendingQueueEntry(taskId: taskId, priority: priority)
+
+        // 找到第一个优先级小于新条目的位置
+        if let insertIndex = pendingQueue.firstIndex(where: { $0.priority < priority }) {
+            pendingQueue.insert(newEntry, at: insertIndex)
+        } else {
+            pendingQueue.append(newEntry)
+        }
+
+        Logger.info("Task \(taskId) queued with priority \(priority). Queue position: \(pendingQueue.count), Running: \(runningTaskIds.count)/\(maxConcurrentTasks)")
     }
 
     /// 启动指定任务
@@ -200,8 +224,9 @@ actor DownloadQueueManager {
         guard runningTaskIds.count < maxConcurrentTasks else { return }
         guard !pendingQueue.isEmpty else { return }
 
-        // 取出等待队列中的第一个任务
-        let nextTaskId = pendingQueue.removeFirst()
+        // 取出等待队列中的第一个任务（已按优先级排序）
+        let nextEntry = pendingQueue.removeFirst()
+        let nextTaskId = nextEntry.taskId
         Logger.info("Processing next pending task: \(nextTaskId). Remaining in queue: \(pendingQueue.count)")
 
         startTask(taskId: nextTaskId)
