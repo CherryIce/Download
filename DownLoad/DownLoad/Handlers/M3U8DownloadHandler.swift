@@ -278,6 +278,25 @@ class M3U8DownloadTask: DownloadTask {
         try await task?.value
     }
 
+    func retry() async throws {
+        guard state.value == .failed else {
+            Logger.warning("M3U8 retry() called but state is not .failed (current: \(state.value.displayText)), task: \(id)")
+            return
+        }
+
+        Logger.info("Retrying M3U8 download task: \(id), preserving \(downloadState.completedSegments.count)/\(downloadState.totalSegments) completed segments")
+
+        // 清除暂停原因
+        pauseReason = nil
+
+        // 重置状态为 pending
+        // 注意：不清理 downloadState，保留已下载片段的断点进度
+        state.send(.pending)
+
+        // 重新启动下载（resume() 会自动 loadDownloadState 并跳过已完成片段）
+        try await resume()
+    }
+
     func pause() async {
         // 如果没有外部指定原因，默认为用户手动暂停
         if pauseReason == nil {

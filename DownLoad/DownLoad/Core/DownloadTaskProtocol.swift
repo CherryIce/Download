@@ -39,6 +39,7 @@ protocol DownloadTask: AnyObject {
     var priority: DownloadPriority { get set }
 
     func resume() async throws
+    func retry() async throws
     func pause() async
     func cancel() async
 

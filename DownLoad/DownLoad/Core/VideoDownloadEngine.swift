@@ -236,6 +236,28 @@ class VideoDownloadEngine {
         }
     }
 
+    /// 重试失败的下载任务
+    func retryDownload(task: any DownloadTask) async throws {
+        Logger.info("Requesting retry for download: \(task.id)")
+
+        // 检查网络是否可用
+        guard NetworkMonitor.shared.isNetworkAvailableForDownload else {
+            Logger.warning("Cannot retry download: network not available for downloads")
+            throw DownloadError.networkError(
+                NSError(domain: "NetworkMonitor", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "网络不可用，无法重试下载"
+                ])
+            )
+        }
+
+        // 检查任务是否已在队列中
+        if await queueManager.getTask(by: task.id) == nil {
+            await queueManager.addTask(task)
+        }
+
+        try await task.retry()
+    }
+
     /// 暂停下载
     func pauseDownload(task: any DownloadTask) async {
         Logger.info("Pausing download: \(task.id)")

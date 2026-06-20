@@ -146,6 +146,25 @@ class MP4DownloadTask: DownloadTask {
         }
     }
 
+    func retry() async throws {
+        guard state.value == .failed else {
+            Logger.warning("MP4 retry() called but state is not .failed (current: \(state.value.displayText)), task: \(id)")
+            return
+        }
+
+        Logger.info("Retrying MP4 download task: \(id)")
+
+        // 重置终止原因和暂停原因
+        terminationReason = .none
+        pauseReason = nil
+
+        // 重置状态为 pending，保留 resumeData 和 downloadedSize 用于断点续传
+        state.send(.pending)
+
+        // 重新启动下载（resume() 会自动使用已有的 resumeData）
+        try await resume()
+    }
+
     // MARK: - Storage Space Check During Download
 
     /// 检查是否有足够空间继续下载，空间不足时自动暂停

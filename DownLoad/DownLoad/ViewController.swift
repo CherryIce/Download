@@ -67,6 +67,17 @@ class ViewController: UIViewController {
         return button
     }()
 
+    private let retryButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Retry", for: .normal)
+        button.backgroundColor = .systemGreen
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 8
+        button.isHidden = true  // 默认隐藏，仅在失败时显示
+        return button
+    }()
+
     private let stackView: UIStackView = {
         let sv = UIStackView()
         sv.translatesAutoresizingMaskIntoConstraints = false
@@ -92,6 +103,7 @@ class ViewController: UIViewController {
         stackView.addArrangedSubview(downloadButton)
         stackView.addArrangedSubview(pauseButton)
         stackView.addArrangedSubview(cancelButton)
+        stackView.addArrangedSubview(retryButton)
 
         // Setup constraints
         NSLayoutConstraint.activate([
@@ -115,6 +127,7 @@ class ViewController: UIViewController {
         downloadButton.addTarget(self, action: #selector(startDownload), for: .touchUpInside)
         pauseButton.addTarget(self, action: #selector(pauseDownload), for: .touchUpInside)
         cancelButton.addTarget(self, action: #selector(cancelDownload), for: .touchUpInside)
+        retryButton.addTarget(self, action: #selector(retryDownload), for: .touchUpInside)
 
         // Keyboard dismiss
         urlTextField.delegate = self
@@ -157,6 +170,9 @@ class ViewController: UIViewController {
                     .sink { [weak self] state in
                         self?.log("State: \(state.displayText)")
 
+                        // 控制 Retry 按钮显示：仅在失败时显示
+                        self?.retryButton.isHidden = (state != .failed)
+
                         switch state {
                         case .completed:
                             let path = self?.currentTask?.completedURL?.path ?? "unknown"
@@ -165,6 +181,7 @@ class ViewController: UIViewController {
                             self?.log("下载失败")
                         case .cancelled:
                             self?.log("下载已取消")
+                            self?.retryButton.isHidden = true
                         default:
                             break
                         }
@@ -202,6 +219,27 @@ class ViewController: UIViewController {
             await downloadEngine.cancelDownload(task: task)
             log("Download cancelled")
             currentTask = nil
+        }
+    }
+
+    @objc private func retryDownload() {
+        guard let task = currentTask else {
+            log("No active task to retry")
+            return
+        }
+
+        guard task.state.value == .failed else {
+            log("Task is not in failed state, cannot retry")
+            return
+        }
+
+        Task {
+            do {
+                try await downloadEngine.retryDownload(task: task)
+                log("Download retry started")
+            } catch {
+                log("Retry failed: \(error.localizedDescription)")
+            }
         }
     }
 
