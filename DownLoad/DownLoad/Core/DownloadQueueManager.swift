@@ -121,7 +121,7 @@ actor DownloadQueueManager {
             .sink { [weak self] newState in
                 guard let self = self else { return }
 
-                Task { @MainActor in
+                Task {
                     await self.handleTaskStateChange(taskId: taskId, newState: newState)
                 }
             }

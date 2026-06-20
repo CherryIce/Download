@@ -21,7 +21,8 @@ class MockDownloadTask: DownloadTask {
     let state: CurrentValueSubject<DownloadState, Never>
     let progress: CurrentValueSubject<DownloadProgress, Never>
     var completedURL: URL?
-    
+    var pauseReason: PauseReason?
+
     let format: VideoFormat = .mp4
     var totalSize: Int64?
     var downloadedSize: Int64 = 0
@@ -65,6 +66,11 @@ class MockDownloadTask: DownloadTask {
     }
     
     func pause() async {
+        state.send(.paused)
+    }
+
+    func pause(reason: PauseReason) async {
+        pauseReason = reason
         state.send(.paused)
     }
     
