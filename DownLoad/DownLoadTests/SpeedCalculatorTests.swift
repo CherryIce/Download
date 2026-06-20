@@ -213,4 +213,54 @@ struct SpeedCalculatorTests {
         let speed = calculator.calculateSpeed()
         #expect(speed == 1_048_576, "速度应为 1MB/s，实际为 \(speed)")
     }
+
+    // MARK: - 线程安全测试
+
+    @Test("并发 addSample 和 calculateSpeed 不崩溃")
+    func testConcurrentAccessDoesNotCrash() throws {
+        let calculator = SpeedCalculator()
+        let iterationCount = 1000
+
+        try withThrowingTaskGroup(of: Void.self) { group in
+            // 多个并发写入任务
+            for i in 0..<10 {
+                group.addTask {
+                    for j in 0..<iterationCount {
+                        let bytes = Int64(i * iterationCount + j) * 100
+                        calculator.addSample(bytes: bytes, timestamp: Double(i * iterationCount + j) * 0.001)
+                    }
+                }
+            }
+            // 多个并发读取任务
+            for _ in 0..<5 {
+                group.addTask {
+                    for _ in 0..<iterationCount {
+                        let _ = calculator.calculateSpeed()
+                        let _ = calculator.calculateAverageSpeed()
+                    }
+                }
+            }
+            // 并发重置任务
+            for _ in 0..<2 {
+                group.addTask {
+                    for _ in 0..<100 {
+                        calculator.reset()
+                    }
+                }
+            }
+            try await group.waitForAll()
+        }
+    }
+
+    @Test("calculateAverageSpeed 与 calculateSpeed 结果一致")
+    func testAverageSpeedMatchesSpeed() {
+        let calculator = SpeedCalculator()
+
+        calculator.addSample(bytes: 0, timestamp: 0)
+        calculator.addSample(bytes: 5000, timestamp: 5)
+
+        let speed = calculator.calculateSpeed()
+        let avgSpeed = calculator.calculateAverageSpeed()
+        #expect(speed == avgSpeed, "平均速度应与当前速度一致，speed=\(speed)，avgSpeed=\(avgSpeed)")
+    }
 }

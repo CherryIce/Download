@@ -8,8 +8,9 @@
 import Foundation
 
 /// 速度计算器
-class SpeedCalculator {
+final class SpeedCalculator {
 
+    private let lock = NSLock()
     private var samples: [(timestamp: TimeInterval, bytes: Int64)] = []
     private let maxSamples = 10
     private var lastBytes: Int64 = 0
@@ -17,6 +18,9 @@ class SpeedCalculator {
 
     /// 添加样本
     func addSample(bytes: Int64, timestamp: TimeInterval = Date().timeIntervalSince1970) {
+        lock.lock()
+        defer { lock.unlock() }
+
         samples.append((timestamp: timestamp, bytes: bytes))
 
         // 保持样本数量限制
@@ -30,6 +34,9 @@ class SpeedCalculator {
 
     /// 计算当前速度（字节/秒）
     func calculateSpeed() -> Int64 {
+        lock.lock()
+        defer { lock.unlock() }
+
         guard samples.count >= 2 else { return 0 }
 
         let oldest = samples.first!
@@ -44,16 +51,9 @@ class SpeedCalculator {
         return max(0, speed)
     }
 
-    /// 计算平均速度（字节/秒）
+    /// 计算平均速度（字节/秒）— 与 calculateSpeed 逻辑一致，委托调用以消除重复
     func calculateAverageSpeed() -> Int64 {
-        guard samples.count >= 2 else { return 0 }
-
-        let totalBytes = samples.last!.bytes - samples.first!.bytes
-        let totalTime = samples.last!.timestamp - samples.first!.timestamp
-
-        guard totalTime > 0 else { return 0 }
-
-        return Int64(Double(totalBytes) / totalTime)
+        return calculateSpeed()
     }
 
     /// 计算剩余时间
@@ -69,6 +69,9 @@ class SpeedCalculator {
 
     /// 重置
     func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+
         samples.removeAll()
         lastBytes = 0
         lastTimestamp = 0
