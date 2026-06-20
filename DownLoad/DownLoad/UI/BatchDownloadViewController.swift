@@ -72,6 +72,21 @@ class BatchDownloadViewController: UIViewController {
         return button
     }()
 
+    // MARK: - Empty State & Loading
+    private lazy var emptyStateView: EmptyStateView = {
+        let view = EmptyStateView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.isHidden = true
+        return view
+    }()
+
+    private lazy var loadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.hidesWhenStopped = true
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        return indicator
+    }()
+
     // MARK: - Add Button
     private lazy var addButton: UIButton = {
         let button = UIButton(type: .system)
@@ -104,6 +119,8 @@ class BatchDownloadViewController: UIViewController {
         navigationItem.rightBarButtonItem = editButton
 
         view.addSubview(tableView)
+        view.addSubview(emptyStateView)
+        view.addSubview(loadingIndicator)
         view.addSubview(selectionBar)
         view.addSubview(addButton)
 
@@ -146,7 +163,17 @@ class BatchDownloadViewController: UIViewController {
             addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             addButton.bottomAnchor.constraint(equalTo: selectionBar.topAnchor, constant: -16),
             addButton.widthAnchor.constraint(equalToConstant: 64),
-            addButton.heightAnchor.constraint(equalToConstant: 64)
+            addButton.heightAnchor.constraint(equalToConstant: 64),
+
+            // Empty State View
+            emptyStateView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            emptyStateView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            emptyStateView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            emptyStateView.bottomAnchor.constraint(equalTo: selectionBar.topAnchor),
+
+            // Loading Indicator
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
 
@@ -333,17 +360,59 @@ class BatchDownloadViewController: UIViewController {
         present(alertController, animated: true)
     }
 
+    // MARK: - Empty State
+    private func updateEmptyState(isError: Bool = false) {
+        if batchTasks.isEmpty {
+            emptyStateView.isHidden = false
+            tableView.isHidden = true
+
+            if isError {
+                emptyStateView.configure(
+                    icon: "exclamationmark.triangle",
+                    title: "加载失败",
+                    description: "请稍后重试"
+                )
+            } else {
+                emptyStateView.configure(
+                    icon: "tray",
+                    title: "暂无批量下载任务",
+                    description: "点击右下角 + 按钮添加批量下载任务"
+                )
+            }
+        } else {
+            emptyStateView.isHidden = true
+            tableView.isHidden = false
+        }
+    }
+
     // MARK: - Private Methods
     private func loadBatchTasks() {
         Task {
-            let tasks = await batchManager.getAllBatchTasks()
-            Logger.info("获取到 \(tasks.count) 个批量任务")
-
-            self.batchTasks = tasks
+            // 显示加载状态
             DispatchQueue.main.async {
-                self.tableView.reloadData()
-                self.updateSelectionBar()
-                self.updateDeleteButton()
+                self.loadingIndicator.startAnimating()
+                self.emptyStateView.isHidden = true
+                self.tableView.isHidden = true
+            }
+
+            do {
+                let tasks = await batchManager.getAllBatchTasks()
+                Logger.info("获取到 \(tasks.count) 个批量任务")
+
+                self.batchTasks = tasks
+                DispatchQueue.main.async {
+                    self.loadingIndicator.stopAnimating()
+                    self.tableView.reloadData()
+                    self.updateSelectionBar()
+                    self.updateDeleteButton()
+                    self.updateEmptyState()
+                }
+            } catch {
+                Logger.error("加载批量任务失败: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.loadingIndicator.stopAnimating()
+                    self.updateEmptyState(isError: true)
+                }
             }
         }
     }
