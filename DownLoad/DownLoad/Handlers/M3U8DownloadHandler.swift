@@ -149,13 +149,13 @@ class M3U8DownloadTask: DownloadTask {
         self.priority = priority
     }
 
-    var stateFileURL: URL? {
-        let tempDir = storageManager.createTaskDirectory(taskId: id)
+    func stateFileURL() throws -> URL {
+        let tempDir = try storageManager.createTaskDirectory(taskId: id)
         return tempDir.appendingPathComponent(Constants.M3U8.stateFileName)
     }
 
     private func saveDownloadState() {
-        guard let url = stateFileURL else { return }
+        guard let url = try? stateFileURL() else { return }
         do {
             try storageManager.saveJSON(downloadState, to: url)
         } catch {
@@ -164,7 +164,7 @@ class M3U8DownloadTask: DownloadTask {
     }
 
     private func loadDownloadState() -> M3U8DownloadState? {
-        guard let url = stateFileURL,
+        guard let url = try? stateFileURL(),
               FileManager.default.fileExists(atPath: url.path) else { return nil }
         do {
             return try storageManager.loadJSON(from: url, as: M3U8DownloadState.self)
@@ -193,7 +193,7 @@ class M3U8DownloadTask: DownloadTask {
         task = Task {
             do {
                 // 创建临时目录
-                let tempDir = storageManager.createTaskDirectory(taskId: id)
+                let tempDir = try storageManager.createTaskDirectory(taskId: id)
                 let segmentsDir = tempDir.appendingPathComponent("segments")
                 try FileManager.default.createDirectory(at: segmentsDir, withIntermediateDirectories: true)
 
@@ -242,7 +242,7 @@ class M3U8DownloadTask: DownloadTask {
                 // 合并片段
                 let outputURL = try await mergeSegments(
                     in: segmentsDir,
-                    to: storageManager.completedDirectory().appendingPathComponent(fileName)
+                    to: try storageManager.completedDirectory().appendingPathComponent(fileName)
                 )
 
                 // 清理临时文件
@@ -259,8 +259,9 @@ class M3U8DownloadTask: DownloadTask {
                 if case .insufficientStorage = error {
                     AppLogger.error("M3U8 download paused due to insufficient storage: \(id)")
                     // 清理临时文件
-                    let tempDir = storageManager.createTaskDirectory(taskId: id)
-                    try? storageManager.deleteFile(at: tempDir)
+                    if let tempDir = try? storageManager.createTaskDirectory(taskId: id) {
+                        try? storageManager.deleteFile(at: tempDir)
+                    }
                     state.send(.failed)
                 } else {
                     AppLogger.error("M3U8 download failed: \(error)")
@@ -315,8 +316,9 @@ class M3U8DownloadTask: DownloadTask {
         task?.cancel()
 
         // 清理临时文件
-        let tempDir = storageManager.createTaskDirectory(taskId: id)
-        try? storageManager.deleteFile(at: tempDir)
+        if let tempDir = try? storageManager.createTaskDirectory(taskId: id) {
+            try? storageManager.deleteFile(at: tempDir)
+        }
 
         state.send(.cancelled)
     }

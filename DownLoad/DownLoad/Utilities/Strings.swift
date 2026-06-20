@@ -67,11 +67,11 @@ enum Strings {
         static let noActiveTaskToRetry        = "No active task to retry"
         static let taskNotFailedCannotRetry   = "Task is not in failed state, cannot retry"
         static let noCompletedFileToPlay      = "No completed file to play"
-        static let deleteConfirmation(batchName: String, count: Int) -> String {
+        static func deleteConfirmation(batchName: String, count: Int) -> String {
             return "确定要删除批量任务\"\(batchName)\"吗？包含 \(count) 个文件"
         }
         static let cancelConfirmation         = "确定要取消该批量下载任务吗？"
-        static let deleteFileConfirmation(fileName: String) -> String {
+        static func deleteFileConfirmation(fileName: String) -> String {
             return "确定要删除\"\(fileName)\"吗？此操作不可恢复。"
         }
         static let retryFailedItemsHint       = "失败项可在任务详情中查看并重试"

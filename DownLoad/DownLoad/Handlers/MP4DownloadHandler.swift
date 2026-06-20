@@ -189,7 +189,7 @@ class MP4DownloadTask: DownloadTask {
                     throw DownloadError.invalidURL(url)
                 }
 
-                let tempDirectory = storageManager.createTaskDirectory(taskId: id)
+                let tempDirectory = try storageManager.createTaskDirectory(taskId: id)
                 let tempFileURL = tempDirectory.appendingPathComponent("download.tmp")
 
                 // 使用支持断点续传的可取消下载方法，传入之前保存的 resumeData
@@ -226,7 +226,7 @@ class MP4DownloadTask: DownloadTask {
                 self.downloadHandle = handle
 
                 // 移动到完成目录
-                let destinationURL = storageManager.completedDirectory().appendingPathComponent(fileName)
+                let destinationURL = try storageManager.completedDirectory().appendingPathComponent(fileName)
                 try storageManager.moveFile(from: downloadedURL, to: destinationURL)
 
                 // 清理临时目录和 resumeData
@@ -404,7 +404,7 @@ class MP4DownloadTask: DownloadTask {
                 }
 
                 // 移动到完成目录
-                let destinationURL = storageManager.completedDirectory().appendingPathComponent(fileName)
+                let destinationURL = try storageManager.completedDirectory().appendingPathComponent(fileName)
                 try storageManager.moveFile(from: downloadedURL, to: destinationURL)
 
                 // 清理 resumeData
@@ -495,8 +495,9 @@ class MP4DownloadTask: DownloadTask {
         speedCalculator.reset()
 
         // 清理临时文件
-        let tempDirectory = storageManager.createTaskDirectory(taskId: id)
-        try? storageManager.deleteFile(at: tempDirectory)
+        if let tempDirectory = try? storageManager.createTaskDirectory(taskId: id) {
+            try? storageManager.deleteFile(at: tempDirectory)
+        }
 
         state.send(.cancelled)
     }

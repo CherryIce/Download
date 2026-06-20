@@ -300,8 +300,9 @@ class VideoDownloadEngine {
         deleteTaskRecord(task.id)
 
         // 清理临时文件（即使已完成也检查）
-        let tempDirectory = storageManager.createTaskDirectory(taskId: task.id)
-        try? storageManager.deleteFile(at: tempDirectory)
+        if let tempDirectory = try? storageManager.createTaskDirectory(taskId: task.id) {
+            try? storageManager.deleteFile(at: tempDirectory)
+        }
 
         // 触发缓存清理
         triggerCacheCleanup()
@@ -326,7 +327,13 @@ class VideoDownloadEngine {
         await queueManager.clearAll()
 
         // 清理临时文件
-        let inProgressDir = storageManager.inProgressDirectory()
+        guard let inProgressDir = try? storageManager.inProgressDirectory() else {
+            AppLogger.error("Failed to access in-progress directory for cleanup")
+            // 清空数据库
+            try? database.deleteAllRecords()
+            triggerCacheCleanup()
+            return
+        }
         try? storageManager.cleanDirectory(at: inProgressDir)
 
         AppLogger.info("All downloads cleared")
@@ -382,7 +389,7 @@ class VideoDownloadEngine {
         } else if let m3u8Task = task as? M3U8DownloadTask {
             let record = DownloadTaskRecord(
                 from: m3u8Task.toDownloadItem(),
-                m3u8ResumeData: m3u8Task.stateFileURL?.path
+                m3u8ResumeData: (try? m3u8Task.stateFileURL())?.path
             )
             try? database.saveRecord(record)
         }
@@ -473,7 +480,7 @@ class VideoDownloadEngine {
                                 switch result {
                                 case .success(let tempURL):
                                     do {
-                                        let destinationURL = self.storageManager.completedDirectory().appendingPathComponent(mp4Task.fileName)
+                                        let destinationURL = try self.storageManager.completedDirectory().appendingPathComponent(mp4Task.fileName)
                                         try self.storageManager.moveFile(from: tempURL, to: destinationURL)
                                         mp4Task.markCompleted(url: destinationURL)
                                     } catch {

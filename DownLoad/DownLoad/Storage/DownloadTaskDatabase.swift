@@ -60,6 +60,11 @@ public class DownloadTaskDatabase {
             throw StorageError.databaseOpenFailed(message)
         }
 
+        // 开启 WAL 模式，提升并发读写性能
+        try exec("PRAGMA journal_mode=WAL;")
+        // 设置 busy timeout，避免并发时立即失败
+        try exec("PRAGMA busy_timeout=5000;")
+
         try createTables()
         try migrateIfNeeded()
     }
@@ -71,42 +76,58 @@ public class DownloadTaskDatabase {
     // MARK: - Schema & Migration
 
     private func createTables() throws {
-        let createTable = """
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT PRIMARY KEY,
-            url TEXT NOT NULL,
-            fileName TEXT NOT NULL,
-            state TEXT NOT NULL,
-            progress REAL NOT NULL,
-            totalSize INTEGER,
-            format TEXT NOT NULL DEFAULT 'mp4',
-            resumeData BLOB,
-            downloadedSize INTEGER NOT NULL DEFAULT 0,
-            createdAt REAL NOT NULL,
-            completedAt REAL,
-            m3u8ResumeData TEXT  -- 新增
-        );
-        """
+        try beginTransaction()
+        do {
+            let createTable = """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                fileName TEXT NOT NULL,
+                state TEXT NOT NULL,
+                progress REAL NOT NULL,
+                totalSize INTEGER,
+                format TEXT NOT NULL DEFAULT 'mp4',
+                resumeData BLOB,
+                downloadedSize INTEGER NOT NULL DEFAULT 0,
+                createdAt REAL NOT NULL,
+                completedAt REAL,
+                m3u8ResumeData TEXT  -- 新增
+            );
+            """
 
-        let createVersionTable = """
-        CREATE TABLE IF NOT EXISTS schema_version (
-            version INTEGER PRIMARY KEY
-        );
-        """
+            let createVersionTable = """
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY
+            );
+            """
 
-        try exec(createTable)
-        try exec(createVersionTable)
+            try exec(createTable)
+            try exec(createVersionTable)
+            try commit()
+        } catch {
+            rollback()
+            throw error
+        }
     }
 
     private func migrateIfNeeded() throws {
         let version = try currentVersion()
-        if version < 2 {
-            try migrateV1ToV2()
-            try setVersion(2)
-        }
-        if version < 3 {
-            try migrateV2ToV3()
-            try setVersion(3)
+        if version < currentSchemaVersion {
+            try beginTransaction()
+            do {
+                if version < 2 {
+                    try migrateV1ToV2()
+                    try setVersion(2)
+                }
+                if version < 3 {
+                    try migrateV2ToV3()
+                    try setVersion(3)
+                }
+                try commit()
+            } catch {
+                rollback()
+                throw error
+            }
         }
     }
 
@@ -136,27 +157,25 @@ public class DownloadTaskDatabase {
     }
 
     private func migrateV1ToV2() throws {
-        let migrations = [
-            "ALTER TABLE tasks ADD COLUMN totalSize INTEGER;",
-            "ALTER TABLE tasks ADD COLUMN format TEXT NOT NULL DEFAULT 'mp4';",
-            "ALTER TABLE tasks ADD COLUMN resumeData BLOB;",
-            "ALTER TABLE tasks ADD COLUMN downloadedSize INTEGER NOT NULL DEFAULT 0;",
-            "ALTER TABLE tasks ADD COLUMN createdAt REAL NOT NULL DEFAULT 0;",
-            "ALTER TABLE tasks ADD COLUMN completedAt REAL;"
+        let migrations: [(column: String, sql: String)] = [
+            ("totalSize",      "ALTER TABLE tasks ADD COLUMN totalSize INTEGER;"),
+            ("format",         "ALTER TABLE tasks ADD COLUMN format TEXT NOT NULL DEFAULT 'mp4';"),
+            ("resumeData",     "ALTER TABLE tasks ADD COLUMN resumeData BLOB;"),
+            ("downloadedSize", "ALTER TABLE tasks ADD COLUMN downloadedSize INTEGER NOT NULL DEFAULT 0;"),
+            ("createdAt",      "ALTER TABLE tasks ADD COLUMN createdAt REAL NOT NULL DEFAULT 0;"),
+            ("completedAt",    "ALTER TABLE tasks ADD COLUMN completedAt REAL;")
         ]
-        for sql in migrations {
-            do {
-                try exec(sql)
-            } catch {
-                // 迁移步骤失败时抛出明确的 StorageError，而非仅打印日志
-                throw StorageError.databaseMigrationFailed("Migration failed for SQL: \(sql), error: \(error)")
+        for migration in migrations {
+            if !columnExists(migration.column, in: "tasks") {
+                try exec(migration.sql)
             }
         }
     }
 
     private func migrateV2ToV3() throws {
-        let sql = "ALTER TABLE tasks ADD COLUMN m3u8ResumeData TEXT;"
-        try exec(sql)
+        if !columnExists("m3u8ResumeData", in: "tasks") {
+            try exec("ALTER TABLE tasks ADD COLUMN m3u8ResumeData TEXT;")
+        }
     }
 
     private func exec(_ sql: String) throws {
@@ -165,6 +184,40 @@ public class DownloadTaskDatabase {
             let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
             throw StorageError.databaseQueryFailed(message)
         }
+    }
+
+    /// 检查指定表中是否已存在指定列（用于迁移幂等性保护）
+    private func columnExists(_ columnName: String, in table: String) -> Bool {
+        let sql = "PRAGMA table_info(\(table))"
+        var stmt: OpaquePointer?
+        var exists = false
+
+        if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let name = sqlite3_column_text(stmt, 1) {
+                    if String(cString: name) == columnName {
+                        exists = true
+                        break
+                    }
+                }
+            }
+        }
+        sqlite3_finalize(stmt)
+        return exists
+    }
+
+    // MARK: - Transaction Helpers
+
+    private func beginTransaction() throws {
+        try exec("BEGIN TRANSACTION;")
+    }
+
+    private func commit() throws {
+        try exec("COMMIT;")
+    }
+
+    private func rollback() {
+        try? exec("ROLLBACK;")
     }
 
     // MARK: - Save

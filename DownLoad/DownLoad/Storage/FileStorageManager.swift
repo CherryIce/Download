@@ -18,37 +18,37 @@ class FileStorageManager {
     }
 
     /// 获取下载根目录
-    func downloadsDirectory() -> URL {
+    func downloadsDirectory() throws -> URL {
         let url = documentsDirectory().appendingPathComponent(Constants.Storage.downloadsDirectoryName)
-        createDirectoryIfNeeded(at: url)
+        try createDirectoryIfNeeded(at: url)
         return url
     }
 
     /// 获取正在下载目录
-    func inProgressDirectory() -> URL {
-        let url = downloadsDirectory().appendingPathComponent(Constants.Storage.inProgressDirectoryName)
-        createDirectoryIfNeeded(at: url)
+    func inProgressDirectory() throws -> URL {
+        let url = try downloadsDirectory().appendingPathComponent(Constants.Storage.inProgressDirectoryName)
+        try createDirectoryIfNeeded(at: url)
         return url
     }
 
     /// 获取已完成目录
-    func completedDirectory() -> URL {
-        let url = downloadsDirectory().appendingPathComponent(Constants.Storage.completedDirectoryName)
-        createDirectoryIfNeeded(at: url)
+    func completedDirectory() throws -> URL {
+        let url = try downloadsDirectory().appendingPathComponent(Constants.Storage.completedDirectoryName)
+        try createDirectoryIfNeeded(at: url)
         return url
     }
 
     /// 获取缓存目录
-    func cacheDirectory() -> URL {
-        let url = downloadsDirectory().appendingPathComponent(Constants.Storage.cacheDirectoryName)
-        createDirectoryIfNeeded(at: url)
+    func cacheDirectory() throws -> URL {
+        let url = try downloadsDirectory().appendingPathComponent(Constants.Storage.cacheDirectoryName)
+        try createDirectoryIfNeeded(at: url)
         return url
     }
 
     /// 创建任务专属目录
-    func createTaskDirectory(taskId: UUID) -> URL {
-        let url = inProgressDirectory().appendingPathComponent(taskId.uuidString)
-        createDirectoryIfNeeded(at: url)
+    func createTaskDirectory(taskId: UUID) throws -> URL {
+        let url = try inProgressDirectory().appendingPathComponent(taskId.uuidString)
+        try createDirectoryIfNeeded(at: url)
         return url
     }
 
@@ -83,7 +83,7 @@ class FileStorageManager {
     /// 移动文件
     func moveFile(from source: URL, to destination: URL) throws {
         let destinationDir = destination.deletingLastPathComponent()
-        createDirectoryIfNeeded(at: destinationDir)
+        try createDirectoryIfNeeded(at: destinationDir)
 
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
@@ -149,13 +149,13 @@ class FileStorageManager {
 
     // MARK: - Private Methods
 
-    private func createDirectoryIfNeeded(at url: URL) {
+    private func createDirectoryIfNeeded(at url: URL) throws {
         if !fileManager.fileExists(atPath: url.path) {
             do {
                 try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
                 AppLogger.debug("Directory created at \(url.path)")
             } catch {
-                AppLogger.error("Failed to create directory at \(url.path): \(error)")
+                throw StorageError.directoryCreationFailed(url.path)
             }
         }
     }
@@ -189,7 +189,10 @@ extension FileStorageManager {
 extension FileStorageManager {
     /// 获取缓存目录总大小（字节）
     func getCacheSize() -> Int64 {
-        let cacheDir = cacheDirectory()
+        guard let cacheDir = try? cacheDirectory() else {
+            AppLogger.error("Failed to access cache directory")
+            return 0
+        }
         return directorySize(at: cacheDir)
     }
 
@@ -210,7 +213,10 @@ extension FileStorageManager {
     /// 清理过期缓存文件
     /// - Returns: 清理的文件数量和释放的总字节数
     func cleanExpiredCache() -> (deletedCount: Int, freedBytes: Int64) {
-        let cacheDir = cacheDirectory()
+        guard let cacheDir = try? cacheDirectory() else {
+            AppLogger.error("Failed to access cache directory for cleanup")
+            return (0, 0)
+        }
         var deletedCount = 0
         var freedBytes: Int64 = 0
 
@@ -284,7 +290,13 @@ extension FileStorageManager {
         var deletedCount = 0
         var freedBytes: Int64 = 0
 
-        let cacheDir = cacheDirectory()
+        let cacheDir: URL
+        if let dir = try? cacheDirectory() {
+            cacheDir = dir
+        } else {
+            AppLogger.error("Failed to access cache directory for size limit enforcement")
+            return (0, 0)
+        }
 
         // 收集所有缓存文件及其访问时间
         var files: [(url: URL, modificationDate: Date, size: Int64)] = []
@@ -358,7 +370,10 @@ extension FileStorageManager {
     /// 枚举已完成目录中的所有文件
     /// - Returns: 文件 URL 数组（按修改时间降序）
     func enumerateCompletedFiles() -> [URL] {
-        let completedDir = completedDirectory()
+        guard let completedDir = try? completedDirectory() else {
+            AppLogger.error("Failed to access completed directory")
+            return []
+        }
         guard let contents = try? fileManager.contentsOfDirectory(
             at: completedDir,
             includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
