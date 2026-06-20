@@ -14,7 +14,7 @@ class CompletedFileCell: UITableViewCell {
     private let iconImageView: UIImageView = {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFit
-        iv.tintColor = UIColor(hex: "1890ff")
+        iv.tintColor = .systemBlue
         iv.translatesAutoresizingMaskIntoConstraints = false
         return iv
     }()
@@ -39,8 +39,8 @@ class CompletedFileCell: UITableViewCell {
     private let formatTagLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 11, weight: .medium)
-        label.textColor = UIColor(hex: "8c8c8c")
-        label.backgroundColor = UIColor(hex: "f0f0f0")
+        label.textColor = .secondaryLabel
+        label.backgroundColor = UIColor.dynamic(light: UIColor(hex: "f0f0f0"), dark: UIColor(hex: "2c2c2e"))
         label.textAlignment = .center
         label.layer.cornerRadius = 3
         label.clipsToBounds = true
@@ -58,7 +58,7 @@ class CompletedFileCell: UITableViewCell {
 
     private let separatorView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor(hex: "e0e0e0")
+        view.backgroundColor = UIColor.dynamic(light: UIColor(hex: "e0e0e0"), dark: UIColor(hex: "3a3a3a"))
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()

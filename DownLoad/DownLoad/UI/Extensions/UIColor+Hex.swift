@@ -15,4 +15,20 @@ extension UIColor {
 
         self.init(red: red, green: green, blue: blue, alpha: 1.0)
     }
+
+    /// 创建动态颜色，自动适配暗黑模式
+    static func dynamic(light: UIColor, dark: UIColor) -> UIColor {
+        return UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark ? dark : light
+        }
+    }
+
+    /// 从 hex 创建动态颜色（提供 light 和 dark 两个 hex 值）
+    static func dynamic(hex lightHex: String, darkHex: String) -> UIColor {
+        return UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark
+                ? UIColor(hex: darkHex)
+                : UIColor(hex: lightHex)
+        }
+    }
 }

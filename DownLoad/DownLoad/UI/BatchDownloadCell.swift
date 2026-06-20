@@ -93,7 +93,7 @@ class BatchDownloadCell: UITableViewCell {
         let button = UIButton(type: .system)
         button.setTitle("重试", for: .normal)
         button.setTitleColor(.white, for: .normal)
-        button.backgroundColor = UIColor(hex: "52c41a")
+        button.backgroundColor = .systemGreen
         button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         button.layer.cornerRadius = 4
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -105,7 +105,7 @@ class BatchDownloadCell: UITableViewCell {
         let button = UIButton(type: .system)
         button.setTitle("取消", for: .normal)
         button.setTitleColor(.white, for: .normal)
-        button.backgroundColor = UIColor(hex: "ff4d4f")
+        button.backgroundColor = .systemRed
         button.titleLabel?.font = UIFont.systemFont(ofSize: 12, weight: .medium)
         button.layer.cornerRadius = 4
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -208,14 +208,14 @@ class BatchDownloadCell: UITableViewCell {
         switch state {
         case .downloading:
             pauseResumeButton.setTitle("暂停", for: .normal)
-            pauseResumeButton.backgroundColor = UIColor(hex: "faad14")
+            pauseResumeButton.backgroundColor = .systemOrange
             pauseResumeButton.setTitleColor(.white, for: .normal)
             pauseResumeButton.isHidden = false
             retryButton.isHidden = true
             cancelButton.isHidden = false
         case .paused:
             pauseResumeButton.setTitle("恢复", for: .normal)
-            pauseResumeButton.backgroundColor = UIColor(hex: "1890ff")
+            pauseResumeButton.backgroundColor = .systemBlue
             pauseResumeButton.setTitleColor(.white, for: .normal)
             pauseResumeButton.isHidden = false
             retryButton.isHidden = true
@@ -259,7 +259,7 @@ class BatchDownloadCell: UITableViewCell {
         if show {
             if separatorView == nil {
                 separatorView = UIView()
-                separatorView!.backgroundColor = UIColor(hex: "e0e0e0")
+                separatorView!.backgroundColor = UIColor.dynamic(light: UIColor(hex: "e0e0e0"), dark: UIColor(hex: "3a3a3a"))
                 contentView.addSubview(separatorView!)
                 separatorView!.translatesAutoresizingMaskIntoConstraints = false
 
@@ -336,7 +336,7 @@ class BatchDownloadCell: UITableViewCell {
         case .partiallyFailed:
             statusLabel.textColor = .systemOrange
         case .cancelled:
-            statusLabel.textColor = .gray
+            statusLabel.textColor = .tertiaryLabel
         }
     }
 

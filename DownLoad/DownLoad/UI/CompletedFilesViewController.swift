@@ -436,7 +436,7 @@ extension CompletedFilesViewController: UITableViewDelegate {
             completionHandler(true)
         }
         shareAction.image = UIImage(systemName: "square.and.arrow.up")
-        shareAction.backgroundColor = UIColor(hex: "1890ff")
+        shareAction.backgroundColor = .systemBlue
 
         return UISwipeActionsConfiguration(actions: [deleteAction, shareAction])
     }

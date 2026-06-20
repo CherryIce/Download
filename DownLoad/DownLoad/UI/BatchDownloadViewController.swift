@@ -18,7 +18,7 @@ class BatchDownloadViewController: UIViewController {
         tableView.register(BatchDownloadCell.self, forCellReuseIdentifier: "BatchDownloadCell")
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.backgroundColor = UIColor(hex: "f5f5f5")
+        tableView.backgroundColor = .systemGroupedBackground
         tableView.separatorStyle = .none
         tableView.translatesAutoresizingMaskIntoConstraints = false
         return tableView
@@ -37,7 +37,7 @@ class BatchDownloadViewController: UIViewController {
     // MARK: - Selection Bar
     private lazy var selectionBar: UIView = {
         let view = UIView()
-        view.backgroundColor = .white
+        view.backgroundColor = .secondarySystemGroupedBackground
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -54,7 +54,7 @@ class BatchDownloadViewController: UIViewController {
     private lazy var selectionLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.systemFont(ofSize: 14)
-        label.textColor = UIColor(hex: "333333")
+        label.textColor = .label
         label.text = "已选0项"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -64,7 +64,7 @@ class BatchDownloadViewController: UIViewController {
         let button = UIButton(type: .system)
         button.setTitle("删除", for: .normal)
         button.setTitleColor(.white, for: .normal)
-        button.backgroundColor = UIColor(hex: "ff4d4f")
+        button.backgroundColor = .systemRed
         button.layer.cornerRadius = 16
         button.titleLabel?.font = UIFont.systemFont(ofSize: 14, weight: .medium)
         button.addTarget(self, action: #selector(deleteSelectedTasks), for: .touchUpInside)
@@ -75,7 +75,7 @@ class BatchDownloadViewController: UIViewController {
     // MARK: - Add Button
     private lazy var addButton: UIButton = {
         let button = UIButton(type: .system)
-        button.backgroundColor = UIColor(hex: "1890ff")
+        button.backgroundColor = .systemBlue
         button.layer.cornerRadius = 16
         button.setImage(UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)), for: .normal)
         button.tintColor = .white
