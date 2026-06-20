@@ -14,10 +14,12 @@ class VideoDownloadEngine {
 
     static let shared = VideoDownloadEngine()
 
+    /// 数据库访问器（只读，供已完成文件页面查询记录）
+    private(set) var database: DownloadTaskDatabase
+
     private let queueManager: DownloadQueueManager
     private let storageManager: FileStorageManager
     private let networkClient: NetworkClient
-    private let database: DownloadTaskDatabase
     private var databaseCancellables: [UUID: AnyCancellable] = [:]
     private var hasRestoredTasks = false
 

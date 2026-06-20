@@ -352,6 +352,41 @@ extension FileStorageManager {
     }
 }
 
+// MARK: - Completed Files Enumeration
+
+extension FileStorageManager {
+    /// 枚举已完成目录中的所有文件
+    /// - Returns: 文件 URL 数组（按修改时间降序）
+    func enumerateCompletedFiles() -> [URL] {
+        let completedDir = completedDirectory()
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: completedDir,
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        // 过滤掉目录，只保留文件
+        let files = contents.filter { url in
+            var isDirectory: ObjCBool = false
+            return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && !isDirectory.boolValue
+        }
+
+        // 按修改时间降序排序（最新的在前）
+        return files.sorted { a, b in
+            let dateA = (try? a.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
+            let dateB = (try? b.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date.distantPast
+            return dateA > dateB
+        }
+    }
+
+    /// 获取已完成目录中的文件数量
+    func completedFileCount() -> Int {
+        return enumerateCompletedFiles().count
+    }
+}
+
 // MARK: - JSON Persistence Helpers
 
 extension FileStorageManager {

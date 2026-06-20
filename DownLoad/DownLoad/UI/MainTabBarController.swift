@@ -29,6 +29,16 @@ class MainTabBarController: UITabBarController {
             tag: 1
         )
 
+        // 创建已完成文件视图控制器
+        let completedFilesVC = CompletedFilesViewController()
+        completedFilesVC.title = "已完成文件"
+        let completedFilesNav = UINavigationController(rootViewController: completedFilesVC)
+        completedFilesNav.tabBarItem = UITabBarItem(
+            title: "已完成",
+            image: UIImage(systemName: "doc.text"),
+            tag: 2
+        )
+
         // 创建设置视图控制器
         let settingsVC = SettingsViewController()
         settingsVC.title = "设置"
@@ -36,11 +46,11 @@ class MainTabBarController: UITabBarController {
         settingsNav.tabBarItem = UITabBarItem(
             title: "设置",
             image: UIImage(systemName: "gear"),
-            tag: 2
+            tag: 3
         )
 
         // 设置视图控制器数组
-        let viewControllers = [singleDownloadNav, batchDownloadNav, settingsNav]
+        let viewControllers = [singleDownloadNav, batchDownloadNav, completedFilesNav, settingsNav]
 
         // 设置标签栏控制器
         self.viewControllers = viewControllers
