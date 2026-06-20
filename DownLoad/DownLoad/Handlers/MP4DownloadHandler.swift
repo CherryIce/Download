@@ -141,6 +141,21 @@ class MP4DownloadTask: DownloadTask {
         }
     }
 
+    // MARK: - Storage Space Check During Download
+
+    /// 检查是否有足够空间继续下载，空间不足时自动暂停
+    private func checkStorageSpaceDuringDownload(downloaded: Int64, total: Int64) {
+        let remainingBytes = total - downloaded
+        if remainingBytes > 0,
+           !storageManager.hasEnoughSpaceForContinue(requiredBytes: remainingBytes) {
+            Logger.warning("Storage space insufficient during MP4 download, pausing task: \(id)")
+            Task { [weak self] in
+                guard let self = self else { return }
+                await self.pause(reason: .insufficientStorage)
+            }
+        }
+    }
+
     // MARK: - 前台下载（原有逻辑）
 
     private func resumeWithForegroundDownload() async throws {
@@ -160,6 +175,9 @@ class MP4DownloadTask: DownloadTask {
                     resumeData: resumeData
                 ) { [weak self] downloaded, total in
                     guard let self = self else { return }
+
+                    // 存储空间持续监控
+                    self.checkStorageSpaceDuringDownload(downloaded: downloaded, total: total)
 
                     let now = Date().timeIntervalSince1970
                     self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
@@ -248,6 +266,9 @@ class MP4DownloadTask: DownloadTask {
                             progress: { [weak self] downloaded, total in
                                 guard let self = self else { return }
 
+                                // 存储空间持续监控
+                                self.checkStorageSpaceDuringDownload(downloaded: downloaded, total: total)
+
                                 let now = Date().timeIntervalSince1970
                                 self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
                                 let speed = self.speedCalculator.calculateSpeed()
@@ -281,6 +302,9 @@ class MP4DownloadTask: DownloadTask {
                                 taskId: self.id,
                                 progress: { [weak self] downloaded, total in
                                     guard let self = self else { return }
+
+                                    // 存储空间持续监控
+                                    self.checkStorageSpaceDuringDownload(downloaded: downloaded, total: total)
 
                                     let now = Date().timeIntervalSince1970
                                     self.speedCalculator.addSample(bytes: downloaded, timestamp: now)
@@ -317,6 +341,9 @@ class MP4DownloadTask: DownloadTask {
                             taskId: self.id,
                             progress: { [weak self] downloaded, total in
                                 guard let self = self else { return }
+
+                                // 存储空间持续监控
+                                self.checkStorageSpaceDuringDownload(downloaded: downloaded, total: total)
 
                                 let now = Date().timeIntervalSince1970
                                 self.speedCalculator.addSample(bytes: downloaded, timestamp: now)

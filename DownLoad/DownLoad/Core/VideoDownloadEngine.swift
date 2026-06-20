@@ -274,6 +274,13 @@ class VideoDownloadEngine {
 
         // 删除数据库记录
         deleteTaskRecord(task.id)
+
+        // 清理临时文件（即使已完成也检查）
+        let tempDirectory = storageManager.createTaskDirectory(taskId: task.id)
+        try? storageManager.deleteFile(at: tempDirectory)
+
+        // 触发缓存清理
+        triggerCacheCleanup()
     }
 
     /// 获取所有下载任务
@@ -302,6 +309,21 @@ class VideoDownloadEngine {
 
         // 清空数据库
         try? database.deleteAllRecords()
+
+        // 触发缓存清理
+        triggerCacheCleanup()
+    }
+
+    // MARK: - Cache Cleanup
+
+    /// 触发缓存清理（在任务完成/取消/删除后调用）
+    private func triggerCacheCleanup() {
+        Task(priority: .background) {
+            let result = storageManager.performFullCacheCleanup()
+            if result.deletedCount > 0 {
+                Logger.info("Post-download cache cleanup: removed \(result.deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: result.freedBytes, countStyle: .file))")
+            }
+        }
     }
 
     // MARK: - Database Persistence
@@ -319,6 +341,8 @@ class VideoDownloadEngine {
                     self.persistTask(task)
                     if newState == .completed || newState == .failed || newState == .cancelled {
                         self.databaseCancellables.removeValue(forKey: taskId)
+                        // 任务结束（完成/失败/取消）后触发缓存清理
+                        self.triggerCacheCleanup()
                     }
                 }
             }

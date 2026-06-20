@@ -13,6 +13,7 @@ enum PauseReason: String, Codable {
     case userInitiated       // 用户手动暂停
     case networkLost         // 网络断开自动暂停
     case cellularRestricted  // 蜂窝网络受限自动暂停
+    case insufficientStorage // 存储空间不足自动暂停
 }
 
 /// 下载任务协议

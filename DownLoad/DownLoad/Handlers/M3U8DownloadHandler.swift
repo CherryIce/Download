@@ -250,6 +250,18 @@ class M3U8DownloadTask: DownloadTask {
             } catch is CancellationError {
                 state.send(.paused)
                 saveDownloadState()
+            } catch let error as DownloadError {
+                if case .insufficientStorage = error {
+                    Logger.error("M3U8 download paused due to insufficient storage: \(id)")
+                    // 清理临时文件
+                    let tempDir = storageManager.createTaskDirectory(taskId: id)
+                    try? storageManager.deleteFile(at: tempDir)
+                    state.send(.failed)
+                } else {
+                    Logger.error("M3U8 download failed: \(error)")
+                    state.send(.failed)
+                }
+                saveDownloadState()
             } catch {
                 Logger.error("M3U8 download failed: \(error)")
                 state.send(.failed)
@@ -294,6 +306,22 @@ class M3U8DownloadTask: DownloadTask {
 
     // MARK: - Private Methods
 
+    /// 估算还需要下载的字节数
+    private func estimateRemainingBytes() -> Int64 {
+        let completedCount = downloadState.completedSegments.count
+        let remainingCount = playlist.segments.count - completedCount
+
+        if let totalEstimated = downloadState.totalEstimatedBytes,
+           totalEstimated > 0,
+           playlist.segments.count > 0 {
+            let avgSize = totalEstimated / Int64(playlist.segments.count)
+            return avgSize * Int64(remainingCount)
+        } else {
+            // 粗略估算：500KB/片段
+            return Int64(remainingCount) * 500_000
+        }
+    }
+
     /// 下载初始化片段（fMP4 #EXT-X-MAP）
     private func downloadMapSegment(_ mapInfo: M3U8MapInfo) async throws -> Data {
         if let byteRange = mapInfo.byteRange {
@@ -326,6 +354,17 @@ class M3U8DownloadTask: DownloadTask {
 
     @discardableResult
     private func downloadSegment(_ segment: M3U8Segment, index: Int, to directory: URL) async throws -> Int64 {
+        // 下载前检查空间
+        let estimatedRemaining = estimateRemainingBytes()
+        if estimatedRemaining > 0,
+           !storageManager.hasEnoughSpaceForContinue(requiredBytes: estimatedRemaining) {
+            Logger.warning("Storage space insufficient before downloading segment \(index), pausing M3U8 task: \(id)")
+            throw DownloadError.insufficientStorage(
+                required: estimatedRemaining,
+                available: storageManager.availableStorageSpace()
+            )
+        }
+
         var data: Data
 
         // 问题18：支持字节范围下载

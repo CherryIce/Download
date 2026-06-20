@@ -161,6 +161,197 @@ class FileStorageManager {
     }
 }
 
+// MARK: - Storage Space Monitoring
+
+extension FileStorageManager {
+    /// 检查是否有足够空间用于继续下载
+    /// - Parameters:
+    ///   - requiredBytes: 还需要下载的字节数
+    ///   - bufferRatio: 缓冲比例（默认10%）
+    /// - Returns: 是否有足够空间
+    func hasEnoughSpaceForContinue(requiredBytes: Int64, bufferRatio: Double = 0.1) -> Bool {
+        let requiredWithBuffer = requiredBytes + Int64(Double(requiredBytes) * bufferRatio)
+        let available = availableStorageSpace()
+        return available >= requiredWithBuffer
+    }
+
+    /// 获取指定任务还需要的存储空间
+    func requiredSpaceForTask(totalSize: Int64?, downloadedSize: Int64) -> Int64 {
+        guard let total = totalSize else {
+            return Constants.Storage.defaultMP4SpaceRequirement
+        }
+        return max(0, total - downloadedSize)
+    }
+}
+
+// MARK: - Cache Management
+
+extension FileStorageManager {
+    /// 获取缓存目录总大小（字节）
+    func getCacheSize() -> Int64 {
+        let cacheDir = cacheDirectory()
+        return directorySize(at: cacheDir)
+    }
+
+    /// 获取缓存文件年龄（天数）
+    func getCacheFileAge(_ url: URL) -> Int? {
+        do {
+            let attributes = try fileManager.attributesOfItem(atPath: url.path)
+            if let modificationDate = attributes[.modificationDate] as? Date {
+                let age = Date().timeIntervalSince(modificationDate)
+                return Int(age / (24 * 60 * 60))
+            }
+        } catch {
+            Logger.error("Failed to get cache file age: \(error)")
+        }
+        return nil
+    }
+
+    /// 清理过期缓存文件
+    /// - Returns: 清理的文件数量和释放的总字节数
+    func cleanExpiredCache() -> (deletedCount: Int, freedBytes: Int64) {
+        let cacheDir = cacheDirectory()
+        var deletedCount = 0
+        var freedBytes: Int64 = 0
+
+        guard fileManager.fileExists(atPath: cacheDir.path) else {
+            return (0, 0)
+        }
+
+        let expirationInterval = TimeInterval(Constants.Storage.cacheExpirationDays * 24 * 60 * 60)
+        let now = Date()
+
+        let result = cleanExpiredCache(in: cacheDir, expirationInterval: expirationInterval, now: now)
+        deletedCount += result.deletedCount
+        freedBytes += result.freedBytes
+
+        Logger.info("Cleaned expired cache: \(deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file))")
+        return (deletedCount, freedBytes)
+    }
+
+    /// 递归清理指定目录中的过期缓存
+    private func cleanExpiredCache(in directory: URL, expirationInterval: TimeInterval, now: Date) -> (deletedCount: Int, freedBytes: Int64) {
+        var deletedCount = 0
+        var freedBytes: Int64 = 0
+
+        guard let contents = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) else {
+            return (0, 0)
+        }
+
+        for fileURL in contents {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else { continue }
+
+            if isDirectory.boolValue {
+                let subResult = cleanExpiredCache(in: fileURL, expirationInterval: expirationInterval, now: now)
+                deletedCount += subResult.deletedCount
+                freedBytes += subResult.freedBytes
+
+                // 删除空目录
+                if let subContents = try? fileManager.contentsOfDirectory(at: fileURL, includingPropertiesForKeys: nil),
+                   subContents.isEmpty {
+                    try? fileManager.removeItem(at: fileURL)
+                }
+            } else {
+                if let attributes = try? fileManager.attributesOfItem(atPath: fileURL.path),
+                   let modificationDate = attributes[.modificationDate] as? Date {
+                    if now.timeIntervalSince(modificationDate) > expirationInterval {
+                        let fileSize = self.fileSize(at: fileURL)
+                        try? fileManager.removeItem(at: fileURL)
+                        freedBytes += fileSize
+                        deletedCount += 1
+                        Logger.info("Deleted expired cache file: \(fileURL.lastPathComponent)")
+                    }
+                }
+            }
+        }
+
+        return (deletedCount, freedBytes)
+    }
+
+    /// 强制缓存大小限制（LRU策略：按最久未访问顺序删除）
+    /// - Returns: 删除的文件数量和释放的总字节数
+    func enforceCacheSizeLimit() -> (deletedCount: Int, freedBytes: Int64) {
+        let maxSize = Constants.Storage.maxCacheSize
+        let currentSize = getCacheSize()
+
+        guard currentSize > maxSize else {
+            return (0, 0)
+        }
+
+        let targetSize = Int64(Double(maxSize) * 0.8) // 清理到80%阈值
+        var bytesToFree = currentSize - targetSize
+        var deletedCount = 0
+        var freedBytes: Int64 = 0
+
+        let cacheDir = cacheDirectory()
+
+        // 收集所有缓存文件及其访问时间
+        var files: [(url: URL, modificationDate: Date, size: Int64)] = []
+        collectCacheFiles(in: cacheDir, into: &files)
+
+        // 按修改时间排序（最久未访问的在前）
+        files.sort { $0.modificationDate < $1.modificationDate }
+
+        // 删除最久未访问的文件直到低于阈值
+        for file in files {
+            guard bytesToFree > 0 else { break }
+
+            do {
+                try fileManager.removeItem(at: file.url)
+                freedBytes += file.size
+                bytesToFree -= file.size
+                deletedCount += 1
+                Logger.info("Deleted cache file for size limit: \(file.url.lastPathComponent) (\(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file)))")
+            } catch {
+                Logger.error("Failed to delete cache file \(file.url.path): \(error)")
+            }
+        }
+
+        Logger.info("Enforced cache size limit: \(deletedCount) files deleted, \(ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file)) freed")
+        return (deletedCount, freedBytes)
+    }
+
+    /// 递归收集缓存文件信息
+    private func collectCacheFiles(in directory: URL, into files: inout [(url: URL, modificationDate: Date, size: Int64)]) {
+        guard let contents = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        for fileURL in contents {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else { continue }
+
+            if isDirectory.boolValue {
+                collectCacheFiles(in: fileURL, into: &files)
+            } else {
+                if let attributes = try? fileManager.attributesOfItem(atPath: fileURL.path),
+                   let modificationDate = attributes[.modificationDate] as? Date {
+                    let size = fileSize(at: fileURL)
+                    files.append((url: fileURL, modificationDate: modificationDate, size: size))
+                }
+            }
+        }
+    }
+
+    /// 执行完整缓存清理（先清理过期，再强制大小限制）
+    /// - Returns: 清理结果汇总
+    func performFullCacheCleanup() -> (deletedCount: Int, freedBytes: Int64) {
+        Logger.info("Starting full cache cleanup...")
+
+        let expiredResult = cleanExpiredCache()
+        let sizeResult = enforceCacheSizeLimit()
+
+        let totalDeleted = expiredResult.deletedCount + sizeResult.deletedCount
+        let totalFreed = expiredResult.freedBytes + sizeResult.freedBytes
+
+        Logger.info("Full cache cleanup completed: \(totalDeleted) files deleted, \(ByteCountFormatter.string(fromByteCount: totalFreed, countStyle: .file)) freed")
+        return (totalDeleted, totalFreed)
+    }
+}
+
 // MARK: - JSON Persistence Helpers
 
 extension FileStorageManager {

@@ -21,6 +21,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 初始化后台下载会话
         _ = BackgroundDownloadSession.shared
 
+        // 启动时执行缓存清理
+        let cacheResult = FileStorageManager().performFullCacheCleanup()
+        if cacheResult.deletedCount > 0 {
+            Logger.info("Startup cache cleanup: removed \(cacheResult.deletedCount) files, freed \(ByteCountFormatter.string(fromByteCount: cacheResult.freedBytes, countStyle: .file))")
+        }
+
         // 恢复下载任务
         Task {
             await VideoDownloadEngine.shared.restoreTasksFromDatabase()
