@@ -106,6 +106,7 @@ class M3U8DownloadTask: DownloadTask {
     let createdAt: Date = Date()
     var completedAt: Date?
     var resumeData: Data?
+    var lastError: Error?
 
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
@@ -179,6 +180,7 @@ class M3U8DownloadTask: DownloadTask {
 
         // 恢复时清除暂停原因
         pauseReason = nil
+        lastError = nil
 
         // 尝试恢复之前保存的状态
         if let savedState = loadDownloadState(),
@@ -250,12 +252,14 @@ class M3U8DownloadTask: DownloadTask {
 
                 self.completedURL = outputURL
                 self.completedAt = Date()
+                self.lastError = nil
                 state.send(.completed)
 
             } catch is CancellationError {
                 state.send(.paused)
                 saveDownloadState()
             } catch let error as DownloadError {
+                lastError = error
                 if case .insufficientStorage = error {
                     AppLogger.error("M3U8 download paused due to insufficient storage: \(id)")
                     // 清理临时文件
@@ -270,6 +274,7 @@ class M3U8DownloadTask: DownloadTask {
                 saveDownloadState()
             } catch {
                 AppLogger.error("M3U8 download failed: \(error)")
+                lastError = error
                 state.send(.failed)
                 saveDownloadState()
                 throw DownloadError.taskFailed(error)
@@ -289,6 +294,7 @@ class M3U8DownloadTask: DownloadTask {
 
         // 清除暂停原因
         pauseReason = nil
+        lastError = nil
 
         // 重置状态为 pending
         // 注意：不清理 downloadState，保留已下载片段的断点进度
@@ -312,6 +318,7 @@ class M3U8DownloadTask: DownloadTask {
     func cancel() async {
         // 取消时清除暂停原因
         pauseReason = nil
+        lastError = nil
 
         task?.cancel()
 

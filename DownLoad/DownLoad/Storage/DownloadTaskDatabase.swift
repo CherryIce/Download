@@ -44,10 +44,57 @@ public struct DownloadTaskRecord: Codable {
     }
 }
 
+public struct BatchDownloadFailedItemRecord: Codable, Equatable {
+    public let id: UUID
+    public let url: String
+    public let fileName: String
+    public let errorDescription: String
+    public let failedAt: Date
+
+    public init(
+        id: UUID,
+        url: String,
+        fileName: String,
+        errorDescription: String,
+        failedAt: Date
+    ) {
+        self.id = id
+        self.url = url
+        self.fileName = fileName
+        self.errorDescription = errorDescription
+        self.failedAt = failedAt
+    }
+}
+
+public struct BatchDownloadRecord: Codable, Equatable {
+    public let id: UUID
+    public let name: String
+    public let createdAt: Date
+    public let state: String
+    public let taskIds: [UUID]
+    public let failedItems: [BatchDownloadFailedItemRecord]
+
+    public init(
+        id: UUID,
+        name: String,
+        createdAt: Date,
+        state: String,
+        taskIds: [UUID],
+        failedItems: [BatchDownloadFailedItemRecord]
+    ) {
+        self.id = id
+        self.name = name
+        self.createdAt = createdAt
+        self.state = state
+        self.taskIds = taskIds
+        self.failedItems = failedItems
+    }
+}
+
 public class DownloadTaskDatabase {
     private var db: OpaquePointer?
     private let dbPath: String
-    private let currentSchemaVersion = 3
+    private let currentSchemaVersion = 4
 
     public init() throws {
         let dbURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -101,8 +148,31 @@ public class DownloadTaskDatabase {
             );
             """
 
+            let createBatchTable = """
+            CREATE TABLE IF NOT EXISTS batch_downloads (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                createdAt REAL NOT NULL,
+                state TEXT NOT NULL,
+                taskIds TEXT NOT NULL
+            );
+            """
+
+            let createBatchFailedItemsTable = """
+            CREATE TABLE IF NOT EXISTS batch_failed_items (
+                id TEXT PRIMARY KEY,
+                batchId TEXT NOT NULL,
+                url TEXT NOT NULL,
+                fileName TEXT NOT NULL,
+                errorDescription TEXT NOT NULL,
+                failedAt REAL NOT NULL
+            );
+            """
+
             try exec(createTable)
             try exec(createVersionTable)
+            try exec(createBatchTable)
+            try exec(createBatchFailedItemsTable)
             try commit()
         } catch {
             rollback()
@@ -122,6 +192,10 @@ public class DownloadTaskDatabase {
                 if version < 3 {
                     try migrateV2ToV3()
                     try setVersion(3)
+                }
+                if version < 4 {
+                    try migrateV3ToV4()
+                    try setVersion(4)
                 }
                 try commit()
             } catch {
@@ -176,6 +250,29 @@ public class DownloadTaskDatabase {
         if !columnExists("m3u8ResumeData", in: "tasks") {
             try exec("ALTER TABLE tasks ADD COLUMN m3u8ResumeData TEXT;")
         }
+    }
+
+    private func migrateV3ToV4() throws {
+        try exec("""
+        CREATE TABLE IF NOT EXISTS batch_downloads (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            createdAt REAL NOT NULL,
+            state TEXT NOT NULL,
+            taskIds TEXT NOT NULL
+        );
+        """)
+
+        try exec("""
+        CREATE TABLE IF NOT EXISTS batch_failed_items (
+            id TEXT PRIMARY KEY,
+            batchId TEXT NOT NULL,
+            url TEXT NOT NULL,
+            fileName TEXT NOT NULL,
+            errorDescription TEXT NOT NULL,
+            failedAt REAL NOT NULL
+        );
+        """)
     }
 
     private func exec(_ sql: String) throws {
@@ -288,6 +385,30 @@ public class DownloadTaskDatabase {
         return try queryRecords(sql: sql, stateFilter: state)
     }
 
+    public func loadRecord(byId id: UUID) throws -> DownloadTaskRecord? {
+        let sql = """
+        SELECT id, url, fileName, state, progress,
+               totalSize, format, resumeData, downloadedSize, createdAt, completedAt, m3u8ResumeData
+        FROM tasks WHERE id = ?
+        """
+        var stmt: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+        }
+
+        sqlite3_bind_text(stmt, 1, id.uuidString, -1, nil)
+        defer { sqlite3_finalize(stmt) }
+
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            return nil
+        }
+
+        return readTaskRecord(from: stmt)
+    }
+
     private func queryRecords(sql: String, stateFilter: String?) throws -> [DownloadTaskRecord] {
         var records: [DownloadTaskRecord] = []
         var stmt: OpaquePointer?
@@ -303,50 +424,53 @@ public class DownloadTaskDatabase {
         }
 
         while sqlite3_step(stmt) == SQLITE_ROW {
-            let id = UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) ?? UUID()
-            let url = String(cString: sqlite3_column_text(stmt, 1))
-            let fileName = String(cString: sqlite3_column_text(stmt, 2))
-            let state = String(cString: sqlite3_column_text(stmt, 3))
-            let progress = Float(sqlite3_column_double(stmt, 4))
-            let totalSize = sqlite3_column_int64(stmt, 5)
-            let format = String(cString: sqlite3_column_text(stmt, 6))
-
-            var resumeData: Data?
-            if let blob = sqlite3_column_blob(stmt, 7) {
-                let length = sqlite3_column_bytes(stmt, 7)
-                resumeData = Data(bytes: blob, count: Int(length))
-            }
-
-            let downloadedSize = sqlite3_column_int64(stmt, 8)
-            let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
-            var completedAt: Date?
-            if sqlite3_column_type(stmt, 10) != SQLITE_NULL {
-                completedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 10))
-            }
-            var m3u8ResumeData: String?
-            if sqlite3_column_type(stmt, 11) != SQLITE_NULL {
-                m3u8ResumeData = String(cString: sqlite3_column_text(stmt, 11))
-            }
-
-            let record = DownloadTaskRecord(
-                id: id,
-                url: url,
-                fileName: fileName,
-                state: state,
-                progress: progress,
-                totalSize: totalSize > 0 ? totalSize : nil,
-                format: format,
-                resumeData: resumeData,
-                downloadedSize: downloadedSize,
-                createdAt: createdAt,
-                completedAt: completedAt,
-                m3u8ResumeData: m3u8ResumeData
-            )
-            records.append(record)
+            records.append(readTaskRecord(from: stmt))
         }
 
         sqlite3_finalize(stmt)
         return records
+    }
+
+    private func readTaskRecord(from stmt: OpaquePointer?) -> DownloadTaskRecord {
+        let id = UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) ?? UUID()
+        let url = String(cString: sqlite3_column_text(stmt, 1))
+        let fileName = String(cString: sqlite3_column_text(stmt, 2))
+        let state = String(cString: sqlite3_column_text(stmt, 3))
+        let progress = Float(sqlite3_column_double(stmt, 4))
+        let totalSize = sqlite3_column_int64(stmt, 5)
+        let format = String(cString: sqlite3_column_text(stmt, 6))
+
+        var resumeData: Data?
+        if let blob = sqlite3_column_blob(stmt, 7) {
+            let length = sqlite3_column_bytes(stmt, 7)
+            resumeData = Data(bytes: blob, count: Int(length))
+        }
+
+        let downloadedSize = sqlite3_column_int64(stmt, 8)
+        let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
+        var completedAt: Date?
+        if sqlite3_column_type(stmt, 10) != SQLITE_NULL {
+            completedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 10))
+        }
+        var m3u8ResumeData: String?
+        if sqlite3_column_type(stmt, 11) != SQLITE_NULL {
+            m3u8ResumeData = String(cString: sqlite3_column_text(stmt, 11))
+        }
+
+        return DownloadTaskRecord(
+            id: id,
+            url: url,
+            fileName: fileName,
+            state: state,
+            progress: progress,
+            totalSize: totalSize > 0 ? totalSize : nil,
+            format: format,
+            resumeData: resumeData,
+            downloadedSize: downloadedSize,
+            createdAt: createdAt,
+            completedAt: completedAt,
+            m3u8ResumeData: m3u8ResumeData
+        )
     }
 
     // MARK: - Delete
@@ -395,6 +519,241 @@ public class DownloadTaskDatabase {
 
     public func deleteAllRecords() throws {
         try exec("DELETE FROM tasks;")
+    }
+
+    // MARK: - Batch Save & Load
+
+    public func saveBatchRecord(_ record: BatchDownloadRecord) throws {
+        let encodedTaskIds = try encodeTaskIds(record.taskIds)
+
+        try beginTransaction()
+        do {
+            let sql = """
+            INSERT OR REPLACE INTO batch_downloads (
+                id, name, createdAt, state, taskIds
+            ) VALUES (?, ?, ?, ?, ?)
+            """
+            var stmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                let msgPtr = sqlite3_errmsg(db)
+                let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+                throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+            }
+
+            sqlite3_bind_text(stmt, 1, record.id.uuidString, -1, nil)
+            sqlite3_bind_text(stmt, 2, record.name, -1, nil)
+            sqlite3_bind_double(stmt, 3, record.createdAt.timeIntervalSince1970)
+            sqlite3_bind_text(stmt, 4, record.state, -1, nil)
+            sqlite3_bind_text(stmt, 5, encodedTaskIds, -1, nil)
+
+            let result = sqlite3_step(stmt)
+            sqlite3_finalize(stmt)
+
+            guard result == SQLITE_DONE else {
+                let msgPtr = sqlite3_errmsg(db)
+                let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+                throw StorageError.databaseQueryFailed("Step failed: \(message)")
+            }
+
+            try deleteFailedItems(forBatchId: record.id)
+            for failedItem in record.failedItems {
+                try saveFailedItem(failedItem, batchId: record.id)
+            }
+
+            try commit()
+        } catch {
+            rollback()
+            throw error
+        }
+    }
+
+    public func loadAllBatchRecords() throws -> [BatchDownloadRecord] {
+        let sql = """
+        SELECT id, name, createdAt, state, taskIds
+        FROM batch_downloads
+        ORDER BY createdAt DESC
+        """
+        var stmt: OpaquePointer?
+        var records: [BatchDownloadRecord] = []
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) ?? UUID()
+            let name = String(cString: sqlite3_column_text(stmt, 1))
+            let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2))
+            let state = String(cString: sqlite3_column_text(stmt, 3))
+            let taskIdsText = String(cString: sqlite3_column_text(stmt, 4))
+            let taskIds = try decodeTaskIds(taskIdsText)
+            let failedItems = try loadFailedItems(forBatchId: id)
+
+            records.append(BatchDownloadRecord(
+                id: id,
+                name: name,
+                createdAt: createdAt,
+                state: state,
+                taskIds: taskIds,
+                failedItems: failedItems
+            ))
+        }
+
+        return records
+    }
+
+    public func deleteBatchRecord(byId id: UUID) throws {
+        try beginTransaction()
+        do {
+            try deleteFailedItems(forBatchId: id)
+
+            let sql = "DELETE FROM batch_downloads WHERE id = ?"
+            var stmt: OpaquePointer?
+
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                let msgPtr = sqlite3_errmsg(db)
+                let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+                throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+            }
+
+            sqlite3_bind_text(stmt, 1, id.uuidString, -1, nil)
+            let result = sqlite3_step(stmt)
+            sqlite3_finalize(stmt)
+
+            guard result == SQLITE_DONE else {
+                let msgPtr = sqlite3_errmsg(db)
+                let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+                throw StorageError.databaseQueryFailed("Delete failed: \(message)")
+            }
+
+            try commit()
+        } catch {
+            rollback()
+            throw error
+        }
+    }
+
+    public func deleteAllBatchRecords() throws {
+        try beginTransaction()
+        do {
+            try exec("DELETE FROM batch_failed_items;")
+            try exec("DELETE FROM batch_downloads;")
+            try commit()
+        } catch {
+            rollback()
+            throw error
+        }
+    }
+
+    private func saveFailedItem(_ failedItem: BatchDownloadFailedItemRecord, batchId: UUID) throws {
+        let sql = """
+        INSERT OR REPLACE INTO batch_failed_items (
+            id, batchId, url, fileName, errorDescription, failedAt
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """
+        var stmt: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+        }
+
+        sqlite3_bind_text(stmt, 1, failedItem.id.uuidString, -1, nil)
+        sqlite3_bind_text(stmt, 2, batchId.uuidString, -1, nil)
+        sqlite3_bind_text(stmt, 3, failedItem.url, -1, nil)
+        sqlite3_bind_text(stmt, 4, failedItem.fileName, -1, nil)
+        sqlite3_bind_text(stmt, 5, failedItem.errorDescription, -1, nil)
+        sqlite3_bind_double(stmt, 6, failedItem.failedAt.timeIntervalSince1970)
+
+        let result = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+
+        guard result == SQLITE_DONE else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Step failed: \(message)")
+        }
+    }
+
+    private func loadFailedItems(forBatchId batchId: UUID) throws -> [BatchDownloadFailedItemRecord] {
+        let sql = """
+        SELECT id, url, fileName, errorDescription, failedAt
+        FROM batch_failed_items
+        WHERE batchId = ?
+        ORDER BY failedAt ASC
+        """
+        var stmt: OpaquePointer?
+        var failedItems: [BatchDownloadFailedItemRecord] = []
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        sqlite3_bind_text(stmt, 1, batchId.uuidString, -1, nil)
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = UUID(uuidString: String(cString: sqlite3_column_text(stmt, 0))) ?? UUID()
+            let url = String(cString: sqlite3_column_text(stmt, 1))
+            let fileName = String(cString: sqlite3_column_text(stmt, 2))
+            let errorDescription = String(cString: sqlite3_column_text(stmt, 3))
+            let failedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 4))
+
+            failedItems.append(BatchDownloadFailedItemRecord(
+                id: id,
+                url: url,
+                fileName: fileName,
+                errorDescription: errorDescription,
+                failedAt: failedAt
+            ))
+        }
+
+        return failedItems
+    }
+
+    private func deleteFailedItems(forBatchId batchId: UUID) throws {
+        let sql = "DELETE FROM batch_failed_items WHERE batchId = ?"
+        var stmt: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Prepare failed: \(message)")
+        }
+
+        sqlite3_bind_text(stmt, 1, batchId.uuidString, -1, nil)
+        let result = sqlite3_step(stmt)
+        sqlite3_finalize(stmt)
+
+        guard result == SQLITE_DONE else {
+            let msgPtr = sqlite3_errmsg(db)
+            let message = msgPtr != nil ? String(cString: msgPtr!) : "Unknown error"
+            throw StorageError.databaseQueryFailed("Delete failed: \(message)")
+        }
+    }
+
+    private func encodeTaskIds(_ taskIds: [UUID]) throws -> String {
+        let values = taskIds.map(\.uuidString)
+        let data = try JSONEncoder().encode(values)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw StorageError.databaseQueryFailed("Failed to encode batch task ids")
+        }
+        return text
+    }
+
+    private func decodeTaskIds(_ text: String) throws -> [UUID] {
+        guard let data = text.data(using: .utf8) else {
+            throw StorageError.databaseQueryFailed("Failed to decode batch task ids")
+        }
+        let values = try JSONDecoder().decode([String].self, from: data)
+        return values.compactMap(UUID.init(uuidString:))
     }
 }
 

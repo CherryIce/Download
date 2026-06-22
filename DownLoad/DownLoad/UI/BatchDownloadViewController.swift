@@ -396,6 +396,7 @@ class BatchDownloadViewController: UIViewController {
             }
 
             do {
+                await batchManager.restoreBatchDownloads()
                 let tasks = await batchManager.getAllBatchTasks()
                 AppLogger.info("获取到 \(tasks.count) 个批量任务")
 

@@ -45,4 +45,21 @@ struct DownloadConfiguration {
         self.customHeaders = customHeaders
         self.allowCellularDownload = allowCellularDownload
     }
+
+    func makeURLSessionConfiguration() -> URLSessionConfiguration {
+        let sessionConfiguration = URLSessionConfiguration.default
+        apply(to: sessionConfiguration)
+        return sessionConfiguration
+    }
+
+    func apply(to sessionConfiguration: URLSessionConfiguration) {
+        sessionConfiguration.timeoutIntervalForRequest = timeoutInterval
+        sessionConfiguration.timeoutIntervalForResource = timeoutInterval * 2
+        sessionConfiguration.httpMaximumConnectionsPerHost = maxConcurrentDownloads
+        sessionConfiguration.allowsCellularAccess = allowCellularDownload
+
+        if #available(iOS 13.0, *) {
+            sessionConfiguration.allowsExpensiveNetworkAccess = allowCellularDownload
+        }
+    }
 }

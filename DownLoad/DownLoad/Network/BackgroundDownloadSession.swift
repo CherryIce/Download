@@ -30,10 +30,11 @@ class BackgroundDownloadSession: NSObject {
     }
 
     private func setupSession() {
+        let downloadConfiguration = DownloadConfiguration.default
         let config = URLSessionConfiguration.background(withIdentifier: "com.video.downloader.background")
+        downloadConfiguration.apply(to: config)
         config.isDiscretionary = false
         config.sessionSendsLaunchEvents = true
-        config.httpMaximumConnectionsPerHost = 5
 
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }

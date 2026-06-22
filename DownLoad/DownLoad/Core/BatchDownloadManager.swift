@@ -32,6 +32,14 @@ actor BatchDownloadManager {
             self.errorDescription = error.localizedDescription
             self.failedAt = Date()
         }
+
+        init(record: BatchDownloadFailedItemRecord) {
+            self.id = record.id
+            self.url = record.url
+            self.fileName = record.fileName
+            self.errorDescription = record.errorDescription
+            self.failedAt = record.failedAt
+        }
     }
 
     /// 批量下载创建结果
@@ -57,12 +65,19 @@ actor BatchDownloadManager {
         var state: BatchState
         var failedItems: [BatchFailedItem]
 
-        init(id: UUID = UUID(), name: String, taskItems: [BatchTaskItem], failedItems: [BatchFailedItem] = []) {
+        init(
+            id: UUID = UUID(),
+            name: String,
+            taskItems: [BatchTaskItem],
+            createdAt: Date = Date(),
+            state: BatchState = .pending,
+            failedItems: [BatchFailedItem] = []
+        ) {
             self.id = id
             self.name = name
             self.taskItems = taskItems
-            self.createdAt = Date()
-            self.state = .pending
+            self.createdAt = createdAt
+            self.state = state
             self.failedItems = failedItems
         }
     }
@@ -81,26 +96,14 @@ actor BatchDownloadManager {
     }
 
     /// 批量任务状态
-    enum BatchState {
-        case pending
-        case downloading
-        case paused
-        case completed
-        case failed
-        case partiallyFailed
-        case cancelled
-
-        var rawValue: String {
-            switch self {
-            case .pending: return "Pending"
-            case .downloading: return "Downloading"
-            case .paused: return "Paused"
-            case .completed: return "Completed"
-            case .failed: return "Failed"
-            case .partiallyFailed: return "Partially Failed"
-            case .cancelled: return "Cancelled"
-            }
-        }
+    enum BatchState: String, Codable {
+        case pending = "Pending"
+        case downloading = "Downloading"
+        case paused = "Paused"
+        case completed = "Completed"
+        case failed = "Failed"
+        case partiallyFailed = "Partially Failed"
+        case cancelled = "Cancelled"
 
         var displayText: String {
             switch self {
@@ -163,6 +166,7 @@ actor BatchDownloadManager {
         var batchTask = BatchDownloadTask(name: name, taskItems: taskItems, failedItems: failedItems)
         batchTask.state = state
         batchTasks[batchTask.id] = batchTask
+        persistBatchTask(batchTask)
         AppLogger.info("批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
 
         return BatchDownloadResult(batchTask: batchTask, failedCount: failedItems.count, hasFailures: !failedItems.isEmpty)
@@ -176,11 +180,12 @@ actor BatchDownloadManager {
 
         AppLogger.info("Starting batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .downloading
+        persistBatchTaskIfPresent(batchId: batchId)
 
         // 任务已在 Engine 的 queueManager 中，只需确保状态正确
         for item in batchTask.taskItems {
-            if await VideoDownloadEngine.shared.getTask(by: item.task.id) == nil {
-                try? await VideoDownloadEngine.shared.startDownload(task: item.task)
+            if let liveTask = await VideoDownloadEngine.shared.getTask(by: item.task.id) {
+                try? await VideoDownloadEngine.shared.startDownload(task: liveTask)
             }
         }
     }
@@ -193,10 +198,15 @@ actor BatchDownloadManager {
 
         AppLogger.info("Pausing batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .paused
+        persistBatchTaskIfPresent(batchId: batchId)
 
         // 暂停所有任务
         for item in batchTask.taskItems {
-            await VideoDownloadEngine.shared.pauseDownload(task: item.task)
+            if let liveTask = await VideoDownloadEngine.shared.getTask(by: item.task.id) {
+                await VideoDownloadEngine.shared.pauseDownload(task: liveTask)
+            } else {
+                await item.task.pause()
+            }
         }
     }
 
@@ -208,10 +218,15 @@ actor BatchDownloadManager {
 
         AppLogger.info("Cancelling batch download: \(batchTask.name)")
         batchTasks[batchId]?.state = .cancelled
+        persistBatchTaskIfPresent(batchId: batchId)
 
         // 取消所有任务并从队列中移除
         for item in batchTask.taskItems {
-            await VideoDownloadEngine.shared.cancelDownload(task: item.task)
+            if let liveTask = await VideoDownloadEngine.shared.getTask(by: item.task.id) {
+                await VideoDownloadEngine.shared.cancelDownload(task: liveTask)
+            } else {
+                await item.task.cancel()
+            }
         }
     }
 
@@ -229,6 +244,7 @@ actor BatchDownloadManager {
         }
 
         batchTasks.removeValue(forKey: batchId)
+        deletePersistedBatchTask(batchId: batchId)
     }
 
     /// 获取所有批量任务
@@ -346,6 +362,7 @@ actor BatchDownloadManager {
         }
 
         batchTasks[batchId] = batchTask
+        persistBatchTask(batchTask)
 
         // 自动启动新添加的任务
         if !newTaskItems.isEmpty {
@@ -354,6 +371,7 @@ actor BatchDownloadManager {
             }
             if batchTask.state == .pending {
                 batchTasks[batchId]?.state = .downloading
+                persistBatchTaskIfPresent(batchId: batchId)
             }
         }
 
@@ -374,6 +392,64 @@ actor BatchDownloadManager {
         AppLogger.info("All batch downloads cleared")
     }
 
+    /// 仅清空批量分组元数据，不删除子下载任务。
+    func clearBatchMetadata() {
+        batchTasks.removeAll()
+        do {
+            try VideoDownloadEngine.shared.database.deleteAllBatchRecords()
+        } catch {
+            AppLogger.error("Failed to clear batch metadata: \(error)")
+        }
+    }
+
+    /// 从数据库恢复批量下载分组。
+    func restoreBatchDownloads() async {
+        do {
+            let records = try VideoDownloadEngine.shared.database.loadAllBatchRecords()
+            var restoredTasks: [UUID: BatchDownloadTask] = [:]
+
+            for record in records {
+                var taskItems: [BatchTaskItem] = []
+
+                for taskId in record.taskIds {
+                    if let liveTask = await VideoDownloadEngine.shared.getTask(by: taskId) {
+                        taskItems.append(BatchTaskItem(task: liveTask))
+                        continue
+                    }
+
+                    guard let taskRecord = try VideoDownloadEngine.shared.database.loadRecord(byId: taskId) else {
+                        continue
+                    }
+
+                    let persistedTask = PersistedBatchDownloadTask(record: taskRecord)
+                    taskItems.append(BatchTaskItem(task: persistedTask))
+                }
+
+                let failedItems = record.failedItems.map(BatchFailedItem.init(record:))
+                let persistedState = BatchState(rawValue: record.state) ?? .pending
+                var batchTask = BatchDownloadTask(
+                    id: record.id,
+                    name: record.name,
+                    taskItems: taskItems,
+                    createdAt: record.createdAt,
+                    state: persistedState,
+                    failedItems: failedItems
+                )
+                batchTask.state = recomputeState(for: batchTask, persistedState: persistedState)
+                restoredTasks[batchTask.id] = batchTask
+
+                if batchTask.state != persistedState || taskItems.count != record.taskIds.count {
+                    persistBatchTask(batchTask)
+                }
+            }
+
+            batchTasks = restoredTasks
+            AppLogger.info("Restored \(restoredTasks.count) batch download groups")
+        } catch {
+            AppLogger.error("Failed to restore batch downloads: \(error)")
+        }
+    }
+
     // MARK: - Private Methods
 
     /// 从URL获取文件扩展名
@@ -383,10 +459,149 @@ actor BatchDownloadManager {
         }
         return "mp4"
     }
+
+    private func persistBatchTaskIfPresent(batchId: UUID) {
+        guard let batchTask = batchTasks[batchId] else {
+            return
+        }
+        persistBatchTask(batchTask)
+    }
+
+    private func persistBatchTask(_ batchTask: BatchDownloadTask) {
+        let failedItemRecords = batchTask.failedItems.map {
+            BatchDownloadFailedItemRecord(
+                id: $0.id,
+                url: $0.url,
+                fileName: $0.fileName,
+                errorDescription: $0.errorDescription,
+                failedAt: $0.failedAt
+            )
+        }
+
+        let record = BatchDownloadRecord(
+            id: batchTask.id,
+            name: batchTask.name,
+            createdAt: batchTask.createdAt,
+            state: batchTask.state.rawValue,
+            taskIds: batchTask.taskItems.map { $0.task.id },
+            failedItems: failedItemRecords
+        )
+
+        do {
+            try VideoDownloadEngine.shared.database.saveBatchRecord(record)
+        } catch {
+            AppLogger.error("Failed to persist batch task \(batchTask.id): \(error)")
+        }
+    }
+
+    private func deletePersistedBatchTask(batchId: UUID) {
+        do {
+            try VideoDownloadEngine.shared.database.deleteBatchRecord(byId: batchId)
+        } catch {
+            AppLogger.error("Failed to delete persisted batch task \(batchId): \(error)")
+        }
+    }
+
+    private func recomputeState(for batchTask: BatchDownloadTask, persistedState: BatchState) -> BatchState {
+        if persistedState == .cancelled {
+            return .cancelled
+        }
+
+        let states = batchTask.taskItems.map { $0.task.state.value }
+
+        if states.isEmpty {
+            return batchTask.failedItems.isEmpty ? persistedState : .failed
+        }
+
+        if states.allSatisfy({ $0 == .completed }) {
+            return batchTask.failedItems.isEmpty ? .completed : .partiallyFailed
+        }
+
+        if states.contains(.downloading) {
+            return .downloading
+        }
+
+        if states.contains(.failed) || !batchTask.failedItems.isEmpty {
+            let allFailed = states.allSatisfy { $0 == .failed }
+            return allFailed ? .failed : .partiallyFailed
+        }
+
+        if states.contains(.paused) {
+            return .paused
+        }
+
+        return persistedState
+    }
+}
+
+private final class PersistedBatchDownloadTask: DownloadTask {
+    let id: UUID
+    let url: String
+    let fileName: String
+    let format: VideoFormat
+    let totalSize: Int64?
+    var downloadedSize: Int64
+    let createdAt: Date
+    var completedAt: Date?
+    var resumeData: Data?
+    var lastError: Error?
+    let configuration: DownloadConfiguration
+    let state: CurrentValueSubject<DownloadState, Never>
+    let progress: CurrentValueSubject<DownloadProgress, Never>
+    let completedURL: URL?
+    var pauseReason: PauseReason?
+    var priority: DownloadPriority = .normal
+
+    init(record: DownloadTaskRecord) {
+        self.id = record.id
+        self.url = record.url
+        self.fileName = record.fileName
+        self.format = VideoFormat(rawValue: record.format) ?? .mp4
+        self.totalSize = record.totalSize
+        self.downloadedSize = record.downloadedSize
+        self.createdAt = record.createdAt
+        self.completedAt = record.completedAt
+        self.resumeData = record.resumeData
+        self.configuration = .default
+
+        let restoredState = DownloadState(rawValue: record.state) ?? .pending
+        self.state = CurrentValueSubject<DownloadState, Never>(restoredState)
+        self.progress = CurrentValueSubject<DownloadProgress, Never>(DownloadProgress(
+            taskId: record.id,
+            totalBytes: record.totalSize ?? 0,
+            downloadedBytes: record.downloadedSize,
+            progress: record.progress,
+            speed: 0,
+            remainingTime: 0
+        ))
+        self.completedURL = restoredState == .completed ? record.toDownloadItem().fileURL : nil
+    }
+
+    func resume() async throws {
+        throw BatchDownloadError.restoredTaskUnavailable
+    }
+
+    func retry() async throws {
+        throw BatchDownloadError.restoredTaskUnavailable
+    }
+
+    func pause() async {
+        state.send(.paused)
+    }
+
+    func pause(reason: PauseReason) async {
+        pauseReason = reason
+        state.send(.paused)
+    }
+
+    func cancel() async {
+        state.send(.cancelled)
+    }
 }
 
 /// 批量下载错误
 enum BatchDownloadError: Error {
     case invalidBatchId
     case noTasksInBatch
+    case restoredTaskUnavailable
 }

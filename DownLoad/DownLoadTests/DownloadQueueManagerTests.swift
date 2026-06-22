@@ -30,6 +30,7 @@ class MockDownloadTask: DownloadTask {
     let createdAt: Date = Date()
     var completedAt: Date?
     var resumeData: Data?
+    var lastError: Error?
     
     private var shouldFail: Bool
     private var delay: TimeInterval
@@ -214,6 +215,26 @@ struct DownloadQueueManagerTests {
         let runningCount = await queueManager.runningTaskCount()
         
         #expect(runningCount <= maxConcurrent, "运行任务数不应超过上限\(maxConcurrent)")
+    }
+
+    @Test("更新并发上限后应立即调度等待任务")
+    func testUpdateMaxConcurrentTasksSchedulesPendingTasks() async throws {
+        let queueManager = createQueueManager(maxConcurrent: 1)
+        let tasks = createMockTasks(count: 3)
+
+        for task in tasks {
+            await queueManager.addTask(task)
+        }
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+        #expect(await queueManager.runningTaskCount() == 1)
+        #expect(await queueManager.pendingTaskCount() == 2)
+
+        await queueManager.updateMaxConcurrentTasks(2)
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+        #expect(await queueManager.runningTaskCount() == 2)
+        #expect(await queueManager.pendingTaskCount() == 1)
     }
     
     // MARK: - 自动调度测试

@@ -74,6 +74,7 @@ class MP4DownloadTask: DownloadTask {
     let createdAt: Date = Date()
     var completedAt: Date?
     var resumeData: Data?
+    var lastError: Error?
 
     private let networkClient: NetworkClient
     private let storageManager: FileStorageManager
@@ -108,6 +109,7 @@ class MP4DownloadTask: DownloadTask {
         self.completedURL = url
         self.completedAt = Date()
         self.resumeData = nil
+        self.lastError = nil
         self.state.send(.completed)
     }
 
@@ -136,6 +138,7 @@ class MP4DownloadTask: DownloadTask {
 
         // 恢复时清除暂停原因
         pauseReason = nil
+        lastError = nil
 
         state.send(.downloading)
 
@@ -157,6 +160,7 @@ class MP4DownloadTask: DownloadTask {
         // 重置终止原因和暂停原因
         terminationReason = .none
         pauseReason = nil
+        lastError = nil
 
         // 重置状态为 pending，保留 resumeData 和 downloadedSize 用于断点续传
         state.send(.pending)
@@ -252,6 +256,7 @@ class MP4DownloadTask: DownloadTask {
                 // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
             } catch {
                 AppLogger.error("MP4 download failed: \(error)")
+                self.lastError = error
                 state.send(.failed)
                 throw DownloadError.taskFailed(error)
             }
@@ -429,6 +434,7 @@ class MP4DownloadTask: DownloadTask {
                 // 如果是暂停导致的取消，不发送状态（pause() 会发送 .paused）
             } catch {
                 AppLogger.error("MP4 background download failed: \(error)")
+                self.lastError = error
                 state.send(.failed)
                 throw DownloadError.taskFailed(error)
             }
@@ -479,6 +485,7 @@ class MP4DownloadTask: DownloadTask {
         // 取消时清除暂停原因（不保留恢复能力）
         pauseReason = nil
         resumeData = nil
+        lastError = nil
 
         if useBackgroundDownload {
             // 后台模式：取消后台任务

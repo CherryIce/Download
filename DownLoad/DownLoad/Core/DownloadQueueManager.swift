@@ -15,7 +15,7 @@ actor DownloadQueueManager {
     // MARK: - Properties
 
     private var tasks: [UUID: any DownloadTask] = [:]
-    private let maxConcurrentTasks: Int
+    private var maxConcurrentTasks: Int
 
     /// 当前正在运行的任务ID集合
     private var runningTaskIds: Set<UUID> = []
@@ -100,6 +100,16 @@ actor DownloadQueueManager {
     /// 获取等待队列中的任务数量
     func pendingTaskCount() -> Int {
         return pendingQueue.count
+    }
+
+    /// 动态更新并发上限，并在上限提高时立即调度等待队列。
+    func updateMaxConcurrentTasks(_ newValue: Int) {
+        let sanitizedValue = max(1, newValue)
+        guard sanitizedValue != maxConcurrentTasks else { return }
+
+        AppLogger.info("Updating max concurrent tasks: \(maxConcurrentTasks) -> \(sanitizedValue)")
+        maxConcurrentTasks = sanitizedValue
+        processNextPendingTask()
     }
 
     /// 清空队列
@@ -221,14 +231,13 @@ actor DownloadQueueManager {
 
     /// 处理等待队列中的下一个任务
     private func processNextPendingTask() {
-        guard runningTaskIds.count < maxConcurrentTasks else { return }
-        guard !pendingQueue.isEmpty else { return }
+        while runningTaskIds.count < maxConcurrentTasks && !pendingQueue.isEmpty {
+            // 取出等待队列中的第一个任务（已按优先级排序）
+            let nextEntry = pendingQueue.removeFirst()
+            let nextTaskId = nextEntry.taskId
+            AppLogger.info("Processing next pending task: \(nextTaskId). Remaining in queue: \(pendingQueue.count)")
 
-        // 取出等待队列中的第一个任务（已按优先级排序）
-        let nextEntry = pendingQueue.removeFirst()
-        let nextTaskId = nextEntry.taskId
-        AppLogger.info("Processing next pending task: \(nextTaskId). Remaining in queue: \(pendingQueue.count)")
-
-        startTask(taskId: nextTaskId)
+            startTask(taskId: nextTaskId)
+        }
     }
 }

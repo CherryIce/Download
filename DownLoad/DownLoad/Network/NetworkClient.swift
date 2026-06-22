@@ -69,12 +69,7 @@ actor NetworkClient {
     private let customHeaders: [String: String]
 
     init(configuration: DownloadConfiguration = .default) {
-        let sessionConfiguration = URLSessionConfiguration.default
-        sessionConfiguration.timeoutIntervalForRequest = configuration.timeoutInterval
-        sessionConfiguration.timeoutIntervalForResource = configuration.timeoutInterval * 2
-        sessionConfiguration.httpMaximumConnectionsPerHost = configuration.maxConcurrentDownloads
-
-        self.session = URLSession(configuration: sessionConfiguration)
+        self.session = URLSession(configuration: configuration.makeURLSessionConfiguration())
         self.retryCount = configuration.retryCount
         self.customHeaders = configuration.customHeaders
     }

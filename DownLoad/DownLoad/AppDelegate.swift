@@ -17,6 +17,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // 初始化网络监控（触发 NWPathMonitor 启动）
         _ = NetworkMonitor.shared
+        SettingsViewController.applyCurrentDownloadSettings()
 
         // 初始化后台下载会话
         _ = BackgroundDownloadSession.shared
@@ -58,4 +59,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 }
-

@@ -96,6 +96,22 @@ class SettingsViewController: UIViewController {
         }
         return UserDefaults.standard.bool(forKey: UserDefaultsKey.enableBackgroundDownload)
     }
+
+    static func setMaxConcurrentDownloads(_ value: Int) {
+        UserDefaults.standard.set(max(1, value), forKey: UserDefaultsKey.maxConcurrentDownloads)
+    }
+
+    static func setAllowCellularDownload(_ value: Bool) {
+        UserDefaults.standard.set(value, forKey: UserDefaultsKey.allowCellularDownload)
+    }
+
+    static func applyCurrentDownloadSettings() {
+        NetworkMonitor.shared.isCellularAllowed = getAllowCellularDownload()
+
+        Task {
+            await VideoDownloadEngine.shared.applyCurrentSettings()
+        }
+    }
 }
 
 // MARK: - UITableViewDataSource
@@ -114,7 +130,7 @@ extension SettingsViewController: UITableViewDataSource {
         cell.textLabel?.text = item.title
 
         switch item.type {
-        case .slider(let min, let max, let unit):
+        case .slider(let min, _, let unit):
             let value = UserDefaults.standard.integer(forKey: item.key)
             let displayValue = value > 0 ? value : min
             cell.detailTextLabel?.text = "\(displayValue) \(unit)"
@@ -153,7 +169,12 @@ extension SettingsViewController: UITableViewDataSource {
         let section = sender.tag / 100
         let row = sender.tag % 100
         let item = settings[section][row]
-        UserDefaults.standard.set(sender.isOn, forKey: item.key)
+        if item.key == UserDefaultsKey.allowCellularDownload {
+            SettingsViewController.setAllowCellularDownload(sender.isOn)
+            SettingsViewController.applyCurrentDownloadSettings()
+        } else {
+            UserDefaults.standard.set(sender.isOn, forKey: item.key)
+        }
     }
 }
 
@@ -167,7 +188,7 @@ extension SettingsViewController: UITableViewDelegate {
         case .slider(let min, let max, let unit):
             showSliderAlert(item: item, min: min, max: max, unit: unit, isDouble: false)
 
-        case .sliderDouble(let min, let max, let step, let unit):
+        case .sliderDouble(let min, let max, _, let unit):
             showSliderAlert(item: item, min: Int(min), max: Int(max), unit: unit, isDouble: true)
 
         case .toggle:
@@ -195,8 +216,15 @@ extension SettingsViewController: UITableViewDelegate {
                   let value = Double(text) else {
                 return
             }
-            let finalValue = isDouble ? value : Double(Int(value))
-            UserDefaults.standard.set(finalValue, forKey: item.key)
+            let boundedValue = Swift.min(Swift.max(value, Double(min)), Double(max))
+            let finalValue = isDouble ? boundedValue : Double(Int(boundedValue))
+
+            if item.key == UserDefaultsKey.maxConcurrentDownloads {
+                SettingsViewController.setMaxConcurrentDownloads(Int(finalValue))
+                SettingsViewController.applyCurrentDownloadSettings()
+            } else {
+                UserDefaults.standard.set(finalValue, forKey: item.key)
+            }
             self?.tableView.reloadData()
         })
 

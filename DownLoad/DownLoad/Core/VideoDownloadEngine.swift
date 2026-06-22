@@ -21,6 +21,8 @@ class VideoDownloadEngine {
     private let storageManager: FileStorageManager
     private let networkClient: NetworkClient
     private var databaseCancellables: [UUID: AnyCancellable] = [:]
+    private var notificationCancellables: [UUID: AnyCancellable] = [:]
+    private let notificationBridge = DownloadTaskNotificationBridge()
     private var hasRestoredTasks = false
 
     // MARK: - Network Monitoring
@@ -197,15 +199,15 @@ class VideoDownloadEngine {
             configuration: configuration,
             format: format
         )
-        AppLogger.info("下载任务创建成功: \(task.fileName ?? "未知文件名")")
+        AppLogger.info("下载任务创建成功: \(task.fileName)")
 
-        // 5. 添加到队列
-        await queueManager.addTask(task)
-        AppLogger.info("任务已添加到队列")
-
-        // 6. 保存到数据库并监听状态变化
+        // 5. 保存到数据库并监听状态/进度变化
         persistTask(task)
         observeTaskForDatabase(task)
+
+        // 6. 添加到队列
+        await queueManager.addTask(task)
+        AppLogger.info("任务已添加到队列")
 
         return task
     }
@@ -318,6 +320,11 @@ class VideoDownloadEngine {
         return await queueManager.getTask(by: id)
     }
 
+    /// 应用当前设置到运行中的引擎组件。
+    public func applyCurrentSettings() async {
+        await queueManager.updateMaxConcurrentTasks(SettingsViewController.getMaxConcurrentDownloads())
+    }
+
     /// 清理所有下载
     public func clearAllDownloads() async {
         let tasks = await queueManager.getAllTasks()
@@ -331,6 +338,7 @@ class VideoDownloadEngine {
             AppLogger.error("Failed to access in-progress directory for cleanup")
             // 清空数据库
             try? database.deleteAllRecords()
+            await BatchDownloadManager.shared.clearBatchMetadata()
             triggerCacheCleanup()
             return
         }
@@ -340,6 +348,7 @@ class VideoDownloadEngine {
 
         // 清空数据库
         try? database.deleteAllRecords()
+        await BatchDownloadManager.shared.clearBatchMetadata()
 
         // 触发缓存清理
         triggerCacheCleanup()
@@ -363,6 +372,10 @@ class VideoDownloadEngine {
     private func observeTaskForDatabase(_ task: any DownloadTask) {
         let taskId = task.id
 
+        notificationCancellables[taskId]?.cancel()
+        notificationCancellables[taskId] = notificationBridge.observe(task)
+
+        databaseCancellables[taskId]?.cancel()
         let cancellable = task.state
             .dropFirst()
             .debounce(for: .seconds(0.5), scheduler: DispatchQueue.global(qos: .utility))
@@ -372,6 +385,7 @@ class VideoDownloadEngine {
                     self.persistTask(task)
                     if newState == .completed || newState == .failed || newState == .cancelled {
                         self.databaseCancellables.removeValue(forKey: taskId)
+                        self.notificationCancellables.removeValue(forKey: taskId)
                         // 任务结束（完成/失败/取消）后触发缓存清理
                         self.triggerCacheCleanup()
                     }
@@ -485,10 +499,12 @@ class VideoDownloadEngine {
                                         mp4Task.markCompleted(url: destinationURL)
                                     } catch {
                                         AppLogger.error("Failed to move background downloaded file: \(error)")
+                                        mp4Task.lastError = error
                                         mp4Task.state.send(.failed)
                                     }
                                 case .failure(let error):
                                     AppLogger.error("Background download failed after restore: \(error)")
+                                    mp4Task.lastError = error
                                     mp4Task.state.send(.failed)
                                 }
                             }
@@ -567,6 +583,7 @@ class VideoDownloadEngine {
             }
 
             AppLogger.info("Restored tasks from database")
+            await BatchDownloadManager.shared.restoreBatchDownloads()
         } catch {
             AppLogger.error("Failed to restore tasks from database: \(error)")
         }
@@ -632,6 +649,11 @@ class VideoDownloadEngine {
     /// 清空所有批量下载
     public func clearAllBatchDownloads() async {
         await BatchDownloadManager.shared.clearAllBatchDownloads()
+    }
+
+    /// 从数据库恢复批量下载分组
+    public func restoreBatchDownloads() async {
+        await BatchDownloadManager.shared.restoreBatchDownloads()
     }
 
 

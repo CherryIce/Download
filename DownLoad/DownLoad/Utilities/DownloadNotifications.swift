@@ -7,6 +7,7 @@
 
 import Foundation
 import UserNotifications
+import Combine
 
 /// 下载通知名称
 struct DownloadNotification {
@@ -161,6 +162,64 @@ class DownloadNotifier {
             if let error = error {
                 AppLogger.error("Failed to send local notification: \(error)")
             }
+        }
+    }
+}
+
+/// 将下载任务的 Combine 状态和进度流桥接到应用内通知。
+final class DownloadTaskNotificationBridge {
+
+    private let notifier: DownloadNotifier
+
+    init(notifier: DownloadNotifier = .shared) {
+        self.notifier = notifier
+    }
+
+    func observe(_ task: any DownloadTask) -> AnyCancellable {
+        var cancellables = Set<AnyCancellable>()
+
+        task.state
+            .dropFirst()
+            .sink { [notifier] state in
+                notifier.notifyStateChange(taskId: task.id, state: state)
+
+                switch state {
+                case .completed:
+                    if let completedURL = task.completedURL {
+                        notifier.notifyDownloadComplete(
+                            taskId: task.id,
+                            fileName: task.fileName,
+                            fileURL: completedURL
+                        )
+                    }
+                case .failed:
+                    let error = task.lastError ?? DownloadError.taskFailed(
+                        NSError(
+                            domain: "DownloadTask",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "下载任务失败"]
+                        )
+                    )
+                    notifier.notifyDownloadFail(
+                        taskId: task.id,
+                        fileName: task.fileName,
+                        error: error
+                    )
+                default:
+                    break
+                }
+            }
+            .store(in: &cancellables)
+
+        task.progress
+            .dropFirst()
+            .sink { [notifier] progress in
+                notifier.notifyProgressUpdate(taskId: task.id, progress: progress)
+            }
+            .store(in: &cancellables)
+
+        return AnyCancellable {
+            cancellables.forEach { $0.cancel() }
         }
     }
 }

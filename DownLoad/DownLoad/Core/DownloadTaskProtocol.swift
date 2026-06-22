@@ -27,6 +27,7 @@ protocol DownloadTask: AnyObject {
     var createdAt: Date { get }
     var completedAt: Date? { get }
     var resumeData: Data? { get }
+    var lastError: Error? { get }
     var configuration: DownloadConfiguration { get }
     var state: CurrentValueSubject<DownloadState, Never> { get }
     var progress: CurrentValueSubject<DownloadProgress, Never> { get }
