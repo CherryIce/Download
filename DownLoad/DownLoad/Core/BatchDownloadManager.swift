@@ -14,6 +14,8 @@ actor BatchDownloadManager {
     static let shared = BatchDownloadManager()
 
     private var batchTasks: [UUID: BatchDownloadTask] = [:]
+    private var taskBatchIds: [UUID: Set<UUID>] = [:]
+    private var taskStateCancellables: [UUID: AnyCancellable] = [:]
 
     private init() {}
 
@@ -166,6 +168,7 @@ actor BatchDownloadManager {
         var batchTask = BatchDownloadTask(name: name, taskItems: taskItems, failedItems: failedItems)
         batchTask.state = state
         batchTasks[batchTask.id] = batchTask
+        observeTaskStates(for: batchTask)
         persistBatchTask(batchTask)
         AppLogger.info("批量任务创建完成，ID: \(batchTask.id)，成功: \(taskItems.count)，失败: \(failedItems.count)")
 
@@ -244,6 +247,7 @@ actor BatchDownloadManager {
         }
 
         batchTasks.removeValue(forKey: batchId)
+        detachBatchTask(batchId: batchId)
         deletePersistedBatchTask(batchId: batchId)
     }
 
@@ -255,6 +259,76 @@ actor BatchDownloadManager {
     /// 获取指定批量任务
     func getBatchTask(by batchId: UUID) -> BatchDownloadTask? {
         return batchTasks[batchId]
+    }
+
+    /// 根据子任务状态重新推导并持久化批量任务状态。
+    @discardableResult
+    func recomputeBatchState(batchId: UUID) async -> BatchState? {
+        guard var batchTask = batchTasks[batchId] else {
+            return nil
+        }
+
+        var taskStates: [DownloadState] = []
+        for item in batchTask.taskItems {
+            if let liveTask = await VideoDownloadEngine.shared.getTask(by: item.task.id) {
+                taskStates.append(liveTask.state.value)
+            } else {
+                taskStates.append(item.task.state.value)
+            }
+        }
+
+        let newState = Self.inferredState(
+            taskStates: taskStates,
+            failedItemCount: batchTask.failedItems.count,
+            persistedState: batchTask.state
+        )
+
+        if newState != batchTask.state {
+            batchTask.state = newState
+            batchTasks[batchId] = batchTask
+            persistBatchTask(batchTask)
+            AppLogger.info("Batch state recomputed: \(batchId) -> \(newState.displayText)")
+        }
+
+        return newState
+    }
+
+    static func inferredState(
+        taskStates: [DownloadState],
+        failedItemCount: Int,
+        persistedState: BatchState
+    ) -> BatchState {
+        if persistedState == .cancelled {
+            return .cancelled
+        }
+
+        if taskStates.isEmpty {
+            return failedItemCount > 0 ? .failed : persistedState
+        }
+
+        if taskStates.allSatisfy({ $0 == .completed }) {
+            return failedItemCount == 0 ? .completed : .partiallyFailed
+        }
+
+        if taskStates.contains(.downloading) {
+            return .downloading
+        }
+
+        let hasRuntimeFailure = taskStates.contains(.failed)
+        if hasRuntimeFailure || failedItemCount > 0 {
+            let allRuntimeFailed = taskStates.allSatisfy { $0 == .failed }
+            return allRuntimeFailed ? .failed : .partiallyFailed
+        }
+
+        if taskStates.contains(.paused) {
+            return .paused
+        }
+
+        if taskStates.contains(.pending) {
+            return .pending
+        }
+
+        return persistedState
     }
 
     /// 获取批量任务的进度
@@ -362,6 +436,7 @@ actor BatchDownloadManager {
         }
 
         batchTasks[batchId] = batchTask
+        observeTaskStates(for: batchTask)
         persistBatchTask(batchTask)
 
         // 自动启动新添加的任务
@@ -395,6 +470,7 @@ actor BatchDownloadManager {
     /// 仅清空批量分组元数据，不删除子下载任务。
     func clearBatchMetadata() {
         batchTasks.removeAll()
+        clearTaskStateObservers()
         do {
             try VideoDownloadEngine.shared.database.deleteAllBatchRecords()
         } catch {
@@ -407,6 +483,7 @@ actor BatchDownloadManager {
         do {
             let records = try VideoDownloadEngine.shared.database.loadAllBatchRecords()
             var restoredTasks: [UUID: BatchDownloadTask] = [:]
+            clearTaskStateObservers()
 
             for record in records {
                 var taskItems: [BatchTaskItem] = []
@@ -437,6 +514,7 @@ actor BatchDownloadManager {
                 )
                 batchTask.state = recomputeState(for: batchTask, persistedState: persistedState)
                 restoredTasks[batchTask.id] = batchTask
+                observeTaskStates(for: batchTask)
 
                 if batchTask.state != persistedState || taskItems.count != record.taskIds.count {
                     persistBatchTask(batchTask)
@@ -503,34 +581,57 @@ actor BatchDownloadManager {
     }
 
     private func recomputeState(for batchTask: BatchDownloadTask, persistedState: BatchState) -> BatchState {
-        if persistedState == .cancelled {
-            return .cancelled
+        return Self.inferredState(
+            taskStates: batchTask.taskItems.map { $0.task.state.value },
+            failedItemCount: batchTask.failedItems.count,
+            persistedState: persistedState
+        )
+    }
+
+    private func observeTaskStates(for batchTask: BatchDownloadTask) {
+        for item in batchTask.taskItems {
+            let taskId = item.task.id
+            taskBatchIds[taskId, default: []].insert(batchTask.id)
+
+            guard taskStateCancellables[taskId] == nil else {
+                continue
+            }
+
+            taskStateCancellables[taskId] = item.task.state
+                .dropFirst()
+                .sink { [weak self] _ in
+                    Task {
+                        await self?.recomputeBatchStateForTask(taskId: taskId)
+                    }
+                }
         }
+    }
 
-        let states = batchTask.taskItems.map { $0.task.state.value }
-
-        if states.isEmpty {
-            return batchTask.failedItems.isEmpty ? persistedState : .failed
+    private func recomputeBatchStateForTask(taskId: UUID) async {
+        let batchIds = taskBatchIds[taskId] ?? []
+        for batchId in batchIds {
+            await recomputeBatchState(batchId: batchId)
         }
+    }
 
-        if states.allSatisfy({ $0 == .completed }) {
-            return batchTask.failedItems.isEmpty ? .completed : .partiallyFailed
+    private func detachBatchTask(batchId: UUID) {
+        for (taskId, batchIds) in taskBatchIds {
+            var updatedBatchIds = batchIds
+            updatedBatchIds.remove(batchId)
+            if updatedBatchIds.isEmpty {
+                taskBatchIds.removeValue(forKey: taskId)
+                taskStateCancellables[taskId]?.cancel()
+                taskStateCancellables.removeValue(forKey: taskId)
+            } else {
+                taskBatchIds[taskId] = updatedBatchIds
+            }
         }
+    }
 
-        if states.contains(.downloading) {
-            return .downloading
-        }
-
-        if states.contains(.failed) || !batchTask.failedItems.isEmpty {
-            let allFailed = states.allSatisfy { $0 == .failed }
-            return allFailed ? .failed : .partiallyFailed
-        }
-
-        if states.contains(.paused) {
-            return .paused
-        }
-
-        return persistedState
+    private func clearTaskStateObservers() {
+        taskStateCancellables.values.forEach { $0.cancel() }
+        taskStateCancellables.removeAll()
+        taskBatchIds.removeAll()
     }
 }
 

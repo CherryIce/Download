@@ -169,3 +169,161 @@ struct DownloadTaskNotificationBridgeTests {
         #expect(failedPayload?.2.code == expectedError.code)
     }
 }
+
+@Suite("单任务下载输入助手测试")
+struct SingleDownloadInputTests {
+
+    @Test("URL 带 query 时应从路径推导真实文件名")
+    func testSuggestedFileNameStripsQueryString() {
+        let fileName = SingleDownloadInput.suggestedFileName(
+            for: " https://cdn.example.com/videos/clip.mp4?token=abc#player "
+        )
+
+        #expect(fileName == "clip.mp4")
+    }
+
+    @Test("URL 没有扩展名时应补齐识别出的默认视频扩展")
+    func testSuggestedFileNameAddsFallbackExtension() {
+        let fileName = SingleDownloadInput.suggestedFileName(
+            for: "https://cdn.example.com/watch/episode-01?id=42"
+        )
+
+        #expect(fileName == "episode-01.mp4")
+    }
+}
+
+@Suite("批量状态推导测试")
+struct BatchStateInferenceTests {
+
+    @Test("全部子任务完成时批量状态应自动完成")
+    func testAllCompletedInfersCompleted() {
+        let state = BatchDownloadManager.inferredState(
+            taskStates: [.completed, .completed],
+            failedItemCount: 0,
+            persistedState: .downloading
+        )
+
+        #expect(state == .completed)
+    }
+
+    @Test("部分子任务失败时批量状态应为部分失败")
+    func testMixedFailureInfersPartiallyFailed() {
+        let state = BatchDownloadManager.inferredState(
+            taskStates: [.completed, .failed],
+            failedItemCount: 0,
+            persistedState: .downloading
+        )
+
+        #expect(state == .partiallyFailed)
+    }
+
+    @Test("用户取消状态应被保留")
+    func testCancelledStateIsPreserved() {
+        let state = BatchDownloadManager.inferredState(
+            taskStates: [.completed, .failed],
+            failedItemCount: 0,
+            persistedState: .cancelled
+        )
+
+        #expect(state == .cancelled)
+    }
+}
+
+@Suite("已完成详情动作测试")
+struct CompletedFileDetailActionTests {
+
+    @Test("只有删除文件动作应显示为破坏性样式")
+    func testOnlyDeleteActionIsDestructive() {
+        #expect(CompletedFileDetailAction.shareFile.isDestructive == false)
+        #expect(CompletedFileDetailAction.deleteFile.isDestructive == true)
+    }
+}
+
+@Suite("批量 URL 输入解析测试")
+struct BatchURLInputParserTests {
+
+    @Test("批量粘贴应标记非法 URL 并识别重复项")
+    func testParserMarksInvalidAndDuplicateRows() {
+        let rows = BatchURLInputParser.parse("""
+        https://cdn.example.com/a.mp4
+        not a url
+        https://cdn.example.com/a.mp4
+        https://cdn.example.com/b.m3u8?token=1
+        """)
+
+        #expect(rows.count == 4)
+        #expect(rows[0].canCreateTask == true)
+        #expect(rows[1].canCreateTask == false)
+        #expect(rows[1].message == "URL 无效")
+        #expect(rows[2].canCreateTask == false)
+        #expect(rows[2].message == "重复 URL")
+        #expect(rows[3].fileName == "b.mp4")
+    }
+}
+
+@Suite("批量失败项单独重试测试")
+struct BatchFailedItemSingleRetryTests {
+
+    @Test("编辑失败项 URL 后应规范化并推导新的文件名")
+    func testRetryInputNormalizesEditedURLAndSuggestsFileName() {
+        let failedItemId = UUID()
+        let input = BatchFailedItemRetryInput(
+            failedItemId: failedItemId,
+            rawURL: " https://cdn.example.com/fixed/episode.m3u8?token=abc "
+        )
+
+        #expect(input?.failedItemId == failedItemId)
+        #expect(input?.url == "https://cdn.example.com/fixed/episode.m3u8?token=abc")
+        #expect(input?.fileName == "episode.mp4")
+    }
+
+    @Test("单独重试成功时只移除被重试的失败项")
+    func testSingleRetrySuccessRemovesOnlyTargetFailedItem() {
+        let target = makeFailedItem(fileName: "bad-one.mp4")
+        let untouched = makeFailedItem(fileName: "bad-two.mp4")
+
+        let updatedItems = BatchDownloadManager.failedItemsAfterSingleRetry(
+            [target, untouched],
+            failedItemId: target.id,
+            retryFailure: nil
+        )
+
+        #expect(updatedItems?.count == 1)
+        #expect(updatedItems?.first?.id == untouched.id)
+    }
+
+    @Test("单独重试再次失败时只替换被重试失败项的 URL 和错误")
+    func testSingleRetryFailureReplacesOnlyTargetFailedItem() {
+        let target = makeFailedItem(fileName: "bad-one.mp4")
+        let untouched = makeFailedItem(fileName: "bad-two.mp4")
+        let retryFailure = BatchDownloadManager.BatchFailedItem(
+            id: target.id,
+            url: "https://cdn.example.com/fixed.mp4",
+            fileName: "fixed.mp4",
+            errorDescription: "仍然失败",
+            failedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        let updatedItems = BatchDownloadManager.failedItemsAfterSingleRetry(
+            [target, untouched],
+            failedItemId: target.id,
+            retryFailure: retryFailure
+        )
+
+        #expect(updatedItems?.count == 2)
+        #expect(updatedItems?.first?.id == target.id)
+        #expect(updatedItems?.first?.url == "https://cdn.example.com/fixed.mp4")
+        #expect(updatedItems?.first?.errorDescription == "仍然失败")
+        #expect(updatedItems?.last?.id == untouched.id)
+    }
+
+    private func makeFailedItem(fileName: String) -> BatchDownloadManager.BatchFailedItem {
+        BatchDownloadManager.BatchFailedItem(
+            id: UUID(),
+            url: "https://cdn.example.com/\(fileName)",
+            fileName: fileName,
+            errorDescription: "创建失败",
+            failedAt: Date(timeIntervalSince1970: 1_790_000_000)
+        )
+    }
+}

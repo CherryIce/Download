@@ -7,6 +7,35 @@ import UIKit
 import QuickLook
 import AVKit
 
+enum CompletedFileDetailAction: Int, CaseIterable {
+    case playVideo = 0
+    case previewFile = 1
+    case shareFile = 2
+    case deleteFile = 3
+
+    var title: String {
+        switch self {
+        case .playVideo: return Strings.Row.playVideo
+        case .previewFile: return Strings.Row.previewFile
+        case .shareFile: return Strings.Row.shareFile
+        case .deleteFile: return Strings.Row.deleteFile
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .playVideo: return "play.circle"
+        case .previewFile: return "eye"
+        case .shareFile: return "square.and.arrow.up"
+        case .deleteFile: return "trash"
+        }
+    }
+
+    var isDestructive: Bool {
+        return self == .deleteFile
+    }
+}
+
 /// 已完成文件详情页面
 class CompletedFileDetailViewController: UIViewController {
 
@@ -42,12 +71,7 @@ class CompletedFileDetailViewController: UIViewController {
         ("任务创建时间", "")
     ]
 
-    private let actionRows: [(title: String, icon: String)] = [
-        ("播放视频", "play.circle"),
-        ("预览文件", "eye"),
-        ("分享文件", "square.and.arrow.up"),
-        ("删除文件", "trash")
-    ]
+    private let actionRows = CompletedFileDetailAction.allCases
 
     // MARK: - Initialization
     init(item: CompletedFileItem) {
@@ -116,21 +140,32 @@ class CompletedFileDetailViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "删除", style: .destructive) { [weak self] _ in
             guard let self = self else { return }
 
-            // 删除文件
-            try? self.storageManager.deleteFile(at: self.item.fileURL)
+            do {
+                try self.storageManager.deleteFile(at: self.item.fileURL)
 
-            // 删除数据库记录（如果有）
-            if self.item.hasDatabaseRecord {
-                let engine = VideoDownloadEngine.shared
-                // 通过通知让列表页刷新
-                NotificationCenter.default.post(name: Notification.Name("CompletedFileDeleted"), object: nil, userInfo: ["fileName": self.item.fileName])
+                if self.item.hasDatabaseRecord {
+                    try VideoDownloadEngine.shared.database.deleteRecord(byId: self.item.id)
+                }
+
+                NotificationCenter.default.post(
+                    name: Notification.Name("CompletedFileDeleted"),
+                    object: nil,
+                    userInfo: ["fileName": self.item.fileName, "taskId": self.item.id]
+                )
+
+                AppLogger.info("Deleted completed file from detail: \(self.item.fileName)")
+                self.navigationController?.popViewController(animated: true)
+            } catch {
+                AppLogger.error("Failed to delete completed file from detail: \(error)")
+                self.showAlert(title: "删除失败", message: error.localizedDescription)
             }
-
-            AppLogger.info("Deleted completed file from detail: \(self.item.fileName)")
-
-            // 返回上一页
-            self.navigationController?.popViewController(animated: true)
         })
+        present(alert, animated: true)
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "确定", style: .default))
         present(alert, animated: true)
     }
 }
@@ -199,13 +234,12 @@ extension CompletedFileDetailViewController: UITableViewDataSource {
             }
 
         case .actions:
-            let row = actionRows[indexPath.row]
-            cell.textLabel?.text = row.title
-            cell.imageView?.image = UIImage(systemName: row.icon)
+            let action = actionRows[indexPath.row]
+            cell.textLabel?.text = action.title
+            cell.imageView?.image = UIImage(systemName: action.icon)
             cell.accessoryType = .disclosureIndicator
 
-            // 删除操作红色文字
-            if indexPath.row == 2 {
+            if action.isDestructive {
                 cell.textLabel?.textColor = .systemRed
             }
         }
@@ -232,17 +266,19 @@ extension CompletedFileDetailViewController: UITableViewDelegate {
 
         guard SectionType(rawValue: indexPath.section) == .actions else { return }
 
-        switch indexPath.row {
-        case 0:
+        guard let action = CompletedFileDetailAction(rawValue: indexPath.row) else {
+            return
+        }
+
+        switch action {
+        case .playVideo:
             playVideo()
-        case 1:
+        case .previewFile:
             previewFile()
-        case 2:
+        case .shareFile:
             shareFile()
-        case 3:
+        case .deleteFile:
             deleteFile()
-        default:
-            break
         }
     }
 }
