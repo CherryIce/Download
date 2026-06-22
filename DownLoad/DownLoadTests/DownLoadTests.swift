@@ -100,7 +100,9 @@ struct DownloadTaskNotificationBridgeTests {
         task.state.send(.downloading)
         task.progress.send(progress)
 
-        #expect(statePayloads == [(task.id, DownloadState.downloading.rawValue)])
+        #expect(statePayloads.count == 1)
+        #expect(statePayloads.first?.0 == task.id)
+        #expect(statePayloads.first?.1 == DownloadState.downloading.rawValue)
         #expect(progressPayloads.count == 1)
         #expect(progressPayloads.first?.taskId == task.id)
         #expect(progressPayloads.first?.downloadedBytes == 40)

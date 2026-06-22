@@ -68,6 +68,10 @@ class MockDownloadTask: DownloadTask {
             state.send(.completed)
         }
     }
+
+    func retry() async throws {
+        try await resume()
+    }
     
     func pause() async {
         state.send(.paused)

@@ -27,20 +27,45 @@ actor BatchDownloadManager {
         let errorDescription: String
         let failedAt: Date
 
-        init(url: String, fileName: String, error: Error) {
-            self.id = UUID()
+        init(
+            id: UUID = UUID(),
+            url: String,
+            fileName: String,
+            errorDescription: String,
+            failedAt: Date = Date()
+        ) {
+            self.id = id
             self.url = url
             self.fileName = fileName
-            self.errorDescription = error.localizedDescription
-            self.failedAt = Date()
+            self.errorDescription = errorDescription
+            self.failedAt = failedAt
+        }
+
+        init(url: String, fileName: String, error: Error) {
+            self.init(
+                url: url,
+                fileName: fileName,
+                errorDescription: error.localizedDescription
+            )
         }
 
         init(record: BatchDownloadFailedItemRecord) {
-            self.id = record.id
-            self.url = record.url
-            self.fileName = record.fileName
-            self.errorDescription = record.errorDescription
-            self.failedAt = record.failedAt
+            self.init(
+                id: record.id,
+                url: record.url,
+                fileName: record.fileName,
+                errorDescription: record.errorDescription,
+                failedAt: record.failedAt
+            )
+        }
+
+        func replacingRetryFailure(url: String, fileName: String, error: Error) -> BatchFailedItem {
+            return BatchFailedItem(
+                id: id,
+                url: url,
+                fileName: fileName,
+                errorDescription: error.localizedDescription
+            )
         }
     }
 
@@ -331,6 +356,24 @@ actor BatchDownloadManager {
         return persistedState
     }
 
+    static func failedItemsAfterSingleRetry(
+        _ failedItems: [BatchFailedItem],
+        failedItemId: UUID,
+        retryFailure: BatchFailedItem?
+    ) -> [BatchFailedItem]? {
+        guard let index = failedItems.firstIndex(where: { $0.id == failedItemId }) else {
+            return nil
+        }
+
+        var updatedItems = failedItems
+        if let retryFailure {
+            updatedItems[index] = retryFailure
+        } else {
+            updatedItems.remove(at: index)
+        }
+        return updatedItems
+    }
+
     /// 获取批量任务的进度
     func getBatchProgress(batchId: UUID) async -> (
         total: Int,
@@ -454,6 +497,76 @@ actor BatchDownloadManager {
             batchTask: batchTask,
             failedCount: stillFailedItems.count,
             hasFailures: !stillFailedItems.isEmpty
+        )
+    }
+
+    /// 编辑 URL 后单独重试一个创建失败项。
+    func retryFailedItem(
+        batchId: UUID,
+        failedItemId: UUID,
+        url: String,
+        fileName: String,
+        configuration: DownloadConfiguration = .default
+    ) async -> BatchDownloadResult? {
+        guard var batchTask = batchTasks[batchId],
+              let failedItem = batchTask.failedItems.first(where: { $0.id == failedItemId }) else {
+            return nil
+        }
+
+        let retryURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        let retryFileName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !retryURL.isEmpty, !retryFileName.isEmpty else {
+            return nil
+        }
+
+        AppLogger.info("Retrying single failed item \(failedItemId) for batch: \(batchTask.name)")
+
+        var newTaskItem: BatchTaskItem?
+        let retryFailure: BatchFailedItem?
+        do {
+            let task = try await VideoDownloadEngine.shared.createDownloadTask(
+                url: retryURL,
+                fileName: retryFileName,
+                configuration: configuration
+            )
+            newTaskItem = BatchTaskItem(task: task)
+            retryFailure = nil
+        } catch {
+            retryFailure = failedItem.replacingRetryFailure(
+                url: retryURL,
+                fileName: retryFileName,
+                error: error
+            )
+        }
+
+        guard let updatedFailedItems = Self.failedItemsAfterSingleRetry(
+            batchTask.failedItems,
+            failedItemId: failedItemId,
+            retryFailure: retryFailure
+        ) else {
+            return nil
+        }
+
+        if let newTaskItem {
+            batchTask.taskItems.append(newTaskItem)
+        }
+        batchTask.failedItems = updatedFailedItems
+        batchTask.state = recomputeState(for: batchTask, persistedState: batchTask.state)
+
+        batchTasks[batchId] = batchTask
+        observeTaskStates(for: batchTask)
+        persistBatchTask(batchTask)
+
+        if let newTaskItem {
+            try? await VideoDownloadEngine.shared.startDownload(task: newTaskItem.task)
+            _ = await recomputeBatchState(batchId: batchId)
+        }
+
+        let latestBatchTask = batchTasks[batchId] ?? batchTask
+        return BatchDownloadResult(
+            batchTask: latestBatchTask,
+            failedCount: latestBatchTask.failedItems.count,
+            hasFailures: !latestBatchTask.failedItems.isEmpty
         )
     }
 

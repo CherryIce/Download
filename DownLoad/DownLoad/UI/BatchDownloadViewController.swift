@@ -50,6 +50,22 @@ struct BatchURLInputParser {
     }
 }
 
+struct BatchFailedItemRetryInput {
+    let failedItemId: UUID
+    let url: String
+    let fileName: String
+
+    init?(failedItemId: UUID, rawURL: String) {
+        guard let normalizedURL = SingleDownloadInput.normalizedURLString(for: rawURL) else {
+            return nil
+        }
+
+        self.failedItemId = failedItemId
+        self.url = normalizedURL
+        self.fileName = SingleDownloadInput.suggestedFileName(for: normalizedURL)
+    }
+}
+
 /// 批量下载任务管理界面
 class BatchDownloadViewController: UIViewController {
 
@@ -658,7 +674,9 @@ extension BatchAddViewController: UITableViewDataSource, UITableViewDelegate {
 final class BatchTaskDetailViewController: UIViewController {
     var onRetryFailedItems: ((UUID) -> Void)?
 
-    private let batchTask: BatchDownloadManager.BatchDownloadTask
+    private let batchManager = BatchDownloadManager.shared
+    private var batchTask: BatchDownloadManager.BatchDownloadTask
+    private var retryingFailedItemIds = Set<UUID>()
 
     private enum Section: Int, CaseIterable {
         case summary = 0
@@ -694,13 +712,14 @@ final class BatchTaskDetailViewController: UIViewController {
     }
 
     private func setupNavigationItem() {
-        guard !batchTask.failedItems.isEmpty else { return }
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "重试失败项",
-            style: .plain,
-            target: self,
-            action: #selector(retryFailedItemsTapped)
-        )
+        navigationItem.rightBarButtonItem = batchTask.failedItems.isEmpty
+            ? nil
+            : UIBarButtonItem(
+                title: "重试失败项",
+                style: .plain,
+                target: self,
+                action: #selector(retryFailedItemsTapped)
+            )
     }
 
     private func setupUI() {
@@ -730,6 +749,98 @@ final class BatchTaskDetailViewController: UIViewController {
             ("创建失败", "\(batchTask.failedItems.count) 项"),
             ("创建时间", formatter.string(from: batchTask.createdAt))
         ]
+    }
+
+    private func showEditFailedItemDialog(_ item: BatchDownloadManager.BatchFailedItem) {
+        let alertController = UIAlertController(
+            title: "编辑 URL 后重试",
+            message: item.fileName,
+            preferredStyle: .alert
+        )
+        alertController.addTextField { textField in
+            textField.text = item.url
+            textField.placeholder = "下载 URL"
+            textField.keyboardType = .URL
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+            textField.clearButtonMode = .whileEditing
+        }
+        alertController.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alertController.addAction(UIAlertAction(title: "重试", style: .default) { [weak self, weak alertController] _ in
+            guard let self,
+                  let rawURL = alertController?.textFields?.first?.text,
+                  let retryInput = BatchFailedItemRetryInput(failedItemId: item.id, rawURL: rawURL) else {
+                self?.showAlert(title: "URL 无效", message: "请输入 http、https、thunder 或 magnet 链接")
+                return
+            }
+
+            self.retrySingleFailedItem(retryInput)
+        })
+
+        present(alertController, animated: true)
+    }
+
+    private func retrySingleFailedItem(_ input: BatchFailedItemRetryInput) {
+        guard !retryingFailedItemIds.contains(input.failedItemId) else {
+            return
+        }
+
+        retryingFailedItemIds.insert(input.failedItemId)
+        reloadFailedItemRow(id: input.failedItemId)
+
+        Task {
+            let result = await batchManager.retryFailedItem(
+                batchId: batchTask.id,
+                failedItemId: input.failedItemId,
+                url: input.url,
+                fileName: input.fileName
+            )
+
+            await MainActor.run {
+                self.retryingFailedItemIds.remove(input.failedItemId)
+                guard let result else {
+                    self.reloadFailedItemRow(id: input.failedItemId)
+                    self.showAlert(title: "重试失败", message: "无法找到该失败项")
+                    return
+                }
+
+                self.batchTask = result.batchTask
+                self.setupNavigationItem()
+                self.tableView.reloadData()
+                self.showSingleRetryResultAlert(result, failedItemId: input.failedItemId)
+            }
+        }
+    }
+
+    private func reloadFailedItemRow(id: UUID) {
+        guard let row = batchTask.failedItems.firstIndex(where: { $0.id == id }) else {
+            tableView.reloadData()
+            return
+        }
+
+        tableView.reloadRows(at: [IndexPath(row: row, section: Section.failedItems.rawValue)], with: .none)
+    }
+
+    private func showSingleRetryResultAlert(
+        _ result: BatchDownloadManager.BatchDownloadResult,
+        failedItemId: UUID
+    ) {
+        if let failedItem = result.batchTask.failedItems.first(where: { $0.id == failedItemId }) {
+            showAlert(title: "重试完成（仍失败）", message: failedItem.errorDescription)
+            return
+        }
+
+        if result.hasFailures {
+            showAlert(title: "重试成功", message: "该失败项已重新添加，仍有 \(result.failedCount) 项失败")
+        } else {
+            showAlert(title: "重试成功", message: "该失败项已重新添加并开始下载")
+        }
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "确定", style: .default))
+        present(alertController, animated: true)
     }
 }
 
@@ -783,14 +894,25 @@ extension BatchTaskDetailViewController: UITableViewDataSource, UITableViewDeleg
         case .failedItems:
             let item = batchTask.failedItems[indexPath.row]
             let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "FailedItemCell")
-            cell.textLabel?.text = item.fileName
+            cell.textLabel?.text = retryingFailedItemIds.contains(item.id) ? "\(item.fileName)（重试中）" : item.fileName
             cell.textLabel?.textColor = .systemRed
             cell.detailTextLabel?.text = "\(item.url)\n\(item.errorDescription)"
             cell.detailTextLabel?.numberOfLines = 0
             cell.detailTextLabel?.textColor = .secondaryLabel
-            cell.selectionStyle = .none
+            cell.accessoryType = .disclosureIndicator
+            cell.selectionStyle = .default
             return cell
         }
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        guard Section(rawValue: indexPath.section) == .failedItems,
+              indexPath.row < batchTask.failedItems.count else {
+            return
+        }
+
+        showEditFailedItemDialog(batchTask.failedItems[indexPath.row])
     }
 }
 
