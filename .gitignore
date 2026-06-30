@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode build output
+build/
+DerivedData/
+*.xcresult
+*.dSYM
+*.ipa
+*.app
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# CocoaPods / Carthage
+Pods/
+Carthage/Build/
+
+# Local editor and assistant state
+.claude/
+.vscode/
+.idea/
+
+# Keep historical Trae planning docs tracked, ignore other local Trae state.
+.trae/*
+!.trae/documents/
+!.trae/documents/**
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
